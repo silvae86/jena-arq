@@ -4,23 +4,32 @@
  * [See end of file]
  */
 
-package com.hp.hpl.jena.sparql.function;
+package com.hp.hpl.jena.sparql.sse;
 
-import com.hp.hpl.jena.graph.Graph;
-import com.hp.hpl.jena.sparql.util.Context;
+import com.hp.hpl.jena.graph.Node;
+import com.hp.hpl.jena.sparql.core.Var;
+import com.hp.hpl.jena.sparql.core.VarAlloc;
+import com.hp.hpl.jena.sparql.lang.ParserBase;
 
-/** Environment passed to functions */
-
-public interface FunctionEnv
+public class ParserSSEBase extends ParserBase
 {
-    /** Return the active graph (the one matching is against at this point in the query.
-     * May be null if unknown or not applicable - for example, doing quad store access or
-     * when sorting.
-     */ 
-    public Graph getActiveGraph() ;
+    private VarAlloc varAlloc = new VarAlloc("") ;
+    protected Var createVariable()
+    {
+        return varAlloc.allocVar() ;
+    }
     
-    /** Return the context for this function call */
-    public Context getContext() ;
+    //@Override
+    protected Node createNodeFromPrefixedName(String s, int line, int column)
+    {
+        return Node.createURI(":"+s) ;
+    }
+    
+    protected void throwParseException(String msg, int line, int column)
+    {
+        throw new SSEParseException("Line " + line + ", column " + column + ": " + msg,
+                                    line, column) ;
+    }
 }
 
 /*

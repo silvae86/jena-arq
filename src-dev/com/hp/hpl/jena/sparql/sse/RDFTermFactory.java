@@ -4,23 +4,50 @@
  * [See end of file]
  */
 
-package com.hp.hpl.jena.sparql.function;
+package com.hp.hpl.jena.sparql.sse;
 
-import com.hp.hpl.jena.graph.Graph;
-import com.hp.hpl.jena.sparql.util.Context;
+import java.io.InputStream;
+import java.io.Reader;
+import java.io.StringReader;
 
-/** Environment passed to functions */
+import com.hp.hpl.jena.graph.Node;
+import com.hp.hpl.jena.sparql.sse.parser.ParseException;
+import com.hp.hpl.jena.sparql.sse.parser.Term_Parser;
 
-public interface FunctionEnv
+import com.hp.hpl.jena.sparql.sse.parser.TokenMgrError;
+import com.hp.hpl.jena.util.FileUtils;
+
+public class RDFTermFactory
 {
-    /** Return the active graph (the one matching is against at this point in the query.
-     * May be null if unknown or not applicable - for example, doing quad store access or
-     * when sorting.
-     */ 
-    public Graph getActiveGraph() ;
+    public static Node parseString(String str)
+    {
+        return parse(new StringReader(str)) ;
+    }
     
-    /** Return the context for this function call */
-    public Context getContext() ;
+    public static Node parse(InputStream in)
+    {
+        Reader reader = FileUtils.asBufferedUTF8(in) ;
+        return parse(reader) ;
+    }
+    
+    private static Node parse(Reader reader)
+    {
+        Term_Parser p = new Term_Parser(reader) ;
+        try
+        {
+            return p.term() ;
+       } 
+       catch (ParseException ex)
+       { throw new SSEParseException(ex.getMessage(), ex.currentToken.beginLine, ex.currentToken.beginColumn) ; }
+       catch (TokenMgrError tErr)
+       { 
+           // Last valid token : not the same as token error message - but this should not happen
+           int col = p.token.endColumn ;
+           int line = p.token.endLine ;
+           throw new SSEParseException(tErr.getMessage(), line, col) ;
+       }
+       //catch (JenaException ex)  { throw new TurtleParseException(ex.getMessage(), ex) ; }
+    }
 }
 
 /*

@@ -4,23 +4,33 @@
  * [See end of file]
  */
 
-package com.hp.hpl.jena.sparql.function;
+package com.hp.hpl.jena.sparql.sse;
 
-import com.hp.hpl.jena.graph.Graph;
-import com.hp.hpl.jena.sparql.util.Context;
+import com.hp.hpl.jena.sparql.algebra.Op;
+import com.hp.hpl.jena.sparql.sse.builders.BuilderOp;
+import com.hp.hpl.jena.sparql.sse.builders.ResolvePrefixedNames;
 
-/** Environment passed to functions */
-
-public interface FunctionEnv
+public class AlgSSE
 {
-    /** Return the active graph (the one matching is against at this point in the query.
-     * May be null if unknown or not applicable - for example, doing quad store access or
-     * when sorting.
-     */ 
-    public Graph getActiveGraph() ;
-    
-    /** Return the context for this function call */
-    public Context getContext() ;
+    // to Algebra class when ready.
+    static public Op read(String filename)
+    {
+        Item item = SSE.readFile(filename) ;
+        return parse(item) ;
+    }
+
+    static public Op parse(String string)
+    {
+        Item item = SSE.parseString(string) ;
+        return parse(item) ;
+    }
+
+    static public Op parse(Item item)
+    {
+        item = ResolvePrefixedNames.resolve(item) ;
+        Op op = BuilderOp.build(item) ;
+        return op ;
+    }
 }
 
 /*

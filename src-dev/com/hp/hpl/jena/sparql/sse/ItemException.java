@@ -4,23 +4,12 @@
  * [See end of file]
  */
 
-package com.hp.hpl.jena.sparql.function;
+package com.hp.hpl.jena.sparql.sse;
 
-import com.hp.hpl.jena.graph.Graph;
-import com.hp.hpl.jena.sparql.util.Context;
-
-/** Environment passed to functions */
-
-public interface FunctionEnv
+public class ItemException extends RuntimeException
 {
-    /** Return the active graph (the one matching is against at this point in the query.
-     * May be null if unknown or not applicable - for example, doing quad store access or
-     * when sorting.
-     */ 
-    public Graph getActiveGraph() ;
-    
-    /** Return the context for this function call */
-    public Context getContext() ;
+    public ItemException(String msg) { super(msg); } 
+    public ItemException(String msg, Throwable t) { super(msg, t); }
 }
 
 /*

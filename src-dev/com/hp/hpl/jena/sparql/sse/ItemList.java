@@ -4,23 +4,54 @@
  * [See end of file]
  */
 
-package com.hp.hpl.jena.sparql.function;
+package com.hp.hpl.jena.sparql.sse;
 
-import com.hp.hpl.jena.graph.Graph;
-import com.hp.hpl.jena.sparql.util.Context;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 
-/** Environment passed to functions */
-
-public interface FunctionEnv
+public class ItemList extends ItemLocation //implements Iterable<Item> 
 {
-    /** Return the active graph (the one matching is against at this point in the query.
-     * May be null if unknown or not applicable - for example, doing quad store access or
-     * when sorting.
-     */ 
-    public Graph getActiveGraph() ;
+    private List items = new ArrayList() ;
+
+    public ItemList(int line, int column)
+    { super(line, column) ; }
+
+    public ItemList() { super(noLine, noColumn) ; }
+
+    public int size() { return items.size() ; }
+    public boolean isEmpty() { return items.isEmpty() ; }
+
+    public void addAll(ItemList itemList) { items.addAll(itemList.items) ; }
+    public void add(Item item) { items.add(item) ; }
+    public Item get(int idx) { return (Item)items.get(idx) ; }
+//  public List getList() { return items ; }
+    public Iterator iterator() { return items.iterator() ; }
     
-    /** Return the context for this function call */
-    public Context getContext() ;
+    public Item     car()
+    { 
+        if ( items.size() == 0 )
+            throw new ItemException("ItemList.car: list is zero length") ;
+        return (Item)items.get(0) ;
+    }
+    public ItemList cdr()
+    {
+        if ( items.size() == 0 )
+            throw new ItemException("ItemList.cdr: list is zero length") ;
+        ItemList x = new ItemList(super.getLine(), super.getColumn()) ;
+        if ( items.size() == 0 )
+            return x ; 
+        x.items = this.items.subList(1, size()) ;
+        return x ;
+    }
+    
+    public String toString()
+    { 
+        String str = "" ;
+        if ( hasLocation() )
+            str = str.concat(location()) ;
+
+        return str+items.toString() ; }
 }
 
 /*

@@ -1,30 +1,52 @@
 /*
- * (c) Copyright 2007 Hewlett-Packard Development Company, LP
+ * (c) Copyright 2006, 2007 Hewlett-Packard Development Company, LP
  * All rights reserved.
  * [See end of file]
  */
 
-package com.hp.hpl.jena.sparql.function;
+package com.hp.hpl.jena.sparql.sse;
 
-import com.hp.hpl.jena.graph.Graph;
-import com.hp.hpl.jena.sparql.util.Context;
+import java.util.Iterator;
 
-/** Environment passed to functions */
+import com.hp.hpl.jena.graph.Node;
 
-public interface FunctionEnv
+public class ItemWalker
 {
-    /** Return the active graph (the one matching is against at this point in the query.
-     * May be null if unknown or not applicable - for example, doing quad store access or
-     * when sorting.
-     */ 
-    public Graph getActiveGraph() ;
+    static void walk(ItemVisitor visitor, Item item)
+    {
+        item.visit(new Worker(visitor)) ;
+    }
     
-    /** Return the context for this function call */
-    public Context getContext() ;
+    
+    static class Worker implements ItemVisitor
+    {
+        private ItemVisitor visitor ;
+        Worker(ItemVisitor visitor) { this.visitor = visitor ; }
+        
+        public void visit(Item item, ItemList list)
+        {
+            for ( Iterator iter = list.iterator() ; iter.hasNext() ; )
+            {
+                Item subItem = (Item)iter.next() ;
+                subItem.visit(this) ;
+            }
+            visitor.visit(item, list) ;
+        }
+        
+        public void visit(Item item, Node node)
+        {
+            visitor.visit(item, node) ;
+        }
+        
+        public void visit(Item item, String word)
+        {
+            visitor.visit(item, word) ;
+        }
+    }
 }
 
 /*
- * (c) Copyright 2007 Hewlett-Packard Development Company, LP
+ * (c) Copyright 2006, 2007 Hewlett-Packard Development Company, LP
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

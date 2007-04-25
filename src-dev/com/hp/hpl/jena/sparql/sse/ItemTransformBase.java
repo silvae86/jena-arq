@@ -1,30 +1,34 @@
 /*
- * (c) Copyright 2007 Hewlett-Packard Development Company, LP
+ * (c) Copyright 2006, 2007 Hewlett-Packard Development Company, LP
  * All rights reserved.
  * [See end of file]
  */
 
-package com.hp.hpl.jena.sparql.function;
+package com.hp.hpl.jena.sparql.sse;
 
-import com.hp.hpl.jena.graph.Graph;
-import com.hp.hpl.jena.sparql.util.Context;
+import com.hp.hpl.jena.graph.Node;
 
-/** Environment passed to functions */
-
-public interface FunctionEnv
+public class ItemTransformBase implements ItemTransform
 {
-    /** Return the active graph (the one matching is against at this point in the query.
-     * May be null if unknown or not applicable - for example, doing quad store access or
-     * when sorting.
-     */ 
-    public Graph getActiveGraph() ;
+    public Item transform(Item item, ItemList list)
+    {
+        return Item.createList(list, item.getLine(), item.getColumn()) ;
+    }
+
+    public Item transform(Item item, Node node)
+    {
+        return Item.createNode(node, item.getLine(), item.getColumn()) ;
+    }
     
-    /** Return the context for this function call */
-    public Context getContext() ;
+    public Item transform(Item item, String word)
+    {
+        return Item.createWord(word, item.getLine(), item.getColumn()) ;
+    }
+
 }
 
 /*
- * (c) Copyright 2007 Hewlett-Packard Development Company, LP
+ * (c) Copyright 2006, 2007 Hewlett-Packard Development Company, LP
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
