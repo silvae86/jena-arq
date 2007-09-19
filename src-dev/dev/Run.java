@@ -16,10 +16,11 @@ import com.hp.hpl.jena.util.FileManager;
 import com.hp.hpl.jena.sparql.core.Var;
 import com.hp.hpl.jena.sparql.engine.binding.Binding;
 import com.hp.hpl.jena.sparql.engine.binding.BindingMap;
-import com.hp.hpl.jena.sparql.expr.Expr;
 import com.hp.hpl.jena.sparql.expr.ExprNotComparableException;
 import com.hp.hpl.jena.sparql.expr.NodeValue;
 import com.hp.hpl.jena.sparql.sse.SSE;
+import com.hp.hpl.jena.sparql.util.DateTimeStruct;
+import com.hp.hpl.jena.sparql.util.ExprUtils;
 
 import com.hp.hpl.jena.query.*;
 import com.hp.hpl.jena.query.larq.IndexBuilderString;
@@ -31,6 +32,25 @@ public class Run
 {
     public static void main(String[] argv)
     {
+        if ( false )
+        {
+            String DIR = "/home/afs/W3C/DataAccess/tests/data-r2/expr-equals/" ;
+            String []a1 = { "--strict", "--data="+DIR+"data-eq.ttl",
+                "--query="+DIR+"query-eq2-2.rq",
+                "--result="+DIR+"result-eq2-2.ttl"} ;
+
+            String []a2 = { "--strict", "--data="+DIR+"data-eq.ttl",
+                "--query="+DIR+"query-eq2-graph-1.rq",
+                "--result="+DIR+"result-eq2-graph-1.ttl"} ;
+
+            arq.qtest.main(a1) ;
+            System.exit(0 ) ; 
+        }
+        
+        ExprUtils.expr("1+2+3") ;
+        ExprUtils.exprPrefix("(+ 1 (+ 4 12.56))") ;
+        System.exit(0) ;
+        
         String []a = { "--file=Q.arq", "--out=arq", "--print=op", "--print=query"} ;
         arq.qparse.main(a) ;
         System.exit(0) ;
@@ -39,12 +59,17 @@ public class Run
         execQuery(DIR+"D.ttl", DIR+"Q.arq") ;
     }
     
-    public static void expr(String expr)
+    private static void runParseDateTime(String str)
     {
-        String []a = new String[]{expr} ;
-        System.out.println("Eval: "+expr) ;
-        arq.qexpr.execAndReturn(a) ;
+        System.out.println(str) ; 
+        DateTimeStruct dt = DateTimeStruct.parseDateTime(str) ;
+        System.out.println(str + " ==> " + dt) ;
+        if ( ! str.equals(dt.toString())) 
+            System.out.println("*** Different") ;
     }
+
+    
+    
     
     public static void code()
     {
@@ -65,46 +90,11 @@ public class Run
         b.add(Var.alloc("x"), n1) ;
         b.add(Var.alloc("y"), n2) ;
 
-        expr("( < ?x ?y)", b) ;
-        expr("( = ?x ?y)", b) ;
-        expr("( = ?x ?x)", b) ;
-        expr("( = ?y ?y)", b) ;
+        ExprUtils.exprPrefix("( < ?x ?y)", b) ;
+        ExprUtils.exprPrefix("( = ?x ?y)", b) ;
+        ExprUtils.exprPrefix("( = ?x ?x)", b) ;
+        ExprUtils.exprPrefix("( = ?y ?y)", b) ;
     }
-    
-        
-    private static void expr(String string, Binding b)
-    {
-        Expr expr = SSE.parseExpr(string) ;
-        boolean rc = expr.isSatisfied(b, null) ;
-        System.out.print(string) ;
-        System.out.print(" ==> ") ;
-        System.out.println(rc) ;
-    }
-//
-//    // Unused, untested
-//    private static boolean hasTZ(String lex)
-//    {
-//        int idx = "CCYY-MM-DDThh:mm:ss".length() ;
-//        
-//        if ( lex.charAt(idx) == '-' )
-//            idx ++ ;
-//        
-//        if ( lex.charAt(idx) == '.' )
-//        {
-//            // skip fractional seconds.
-//            int i = idx+1 ;
-//            for ( ; i<lex.length() ; i++ )
-//            {
-//                char ch = lex.charAt(i) ;
-//                if ( ! Character.isDigit(ch) )
-//                    break ;
-//            }
-//            idx = i ; 
-//        }
-//
-//        // Anything left is the timezone.
-//        return idx < lex.length() ;
-//    }
 
     private static void runQParse()
     {

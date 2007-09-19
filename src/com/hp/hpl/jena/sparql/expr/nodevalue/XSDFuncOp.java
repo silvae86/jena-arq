@@ -15,6 +15,7 @@ import com.hp.hpl.jena.sparql.expr.Expr;
 import com.hp.hpl.jena.sparql.expr.ExprEvalException;
 import com.hp.hpl.jena.sparql.expr.NodeValue;
 import com.hp.hpl.jena.sparql.util.ALog;
+import com.hp.hpl.jena.sparql.util.DateTimeStruct;
 import com.hp.hpl.jena.sparql.util.StringUtils;
 
 /**
@@ -568,24 +569,134 @@ public class XSDFuncOp
     // Date/DateTime operations
     // http://www.w3.org/TR/xpath-functions/#comp.duration.datetime
     //  dateTimeCompare
-    // works for dates as well but 
+    // works for dates as well because they are implemented as dateTimes on their start point.
+
+    /**
+     * Under strict F&O, dateTimes and dates with no timezone have one magcially applied. This default tiemzoine is impementation dependent and can lead to different answers to queries depending on the timezone. Normally, ARQ uses XMLSchema dateTime comparions, which an yield "indeterminate", which in turn is an evaluation error. F&O insists on true/false so can lkead to false positves and negatives. 
+     */
+    public static boolean strictDateTimeFO = false ;
 
     public static int compareDateTime(NodeValue nv1, NodeValue nv2)
     { 
-        return compareCal(nv1.getDateTime(), nv2.getDateTime()) ;
+        if ( strictDateTimeFO )
+            return compareDateTimeFO(nv1, nv2) ;
+        return compareXSDDateTime(nv1.getDateTime(), nv2.getDateTime()) ;
     }
 
     public static int compareDate(NodeValue nv1, NodeValue nv2)
     { 
-        return compareCal(nv1.getDate(), nv2.getDate()) ;
+        if ( strictDateTimeFO )
+            return compareDateFO(nv1, nv2) ;
+        return compareXSDDateTime(nv1.getDate(), nv2.getDate()) ;
     }
 
-    private static int compareCal(XSDDateTime dt1 , XSDDateTime dt2)
+    public static String defaultTimezone = "Z" ;
+    
+    private static int compareDateTimeFO(NodeValue nv1, NodeValue nv2)
+    {
+        XSDDateTime dt1 = nv1.getDateTime() ;
+        XSDDateTime dt2 = nv2.getDateTime() ;
+        
+        int x = compareXSDDateTime(dt1, dt2) ;
+        
+        if ( x == XSDDateTime.INDETERMINATE )
+        {
+            NodeValue nv3 = fixupDateTime(nv1) ;
+            if ( nv3 != null )
+            {
+                XSDDateTime dt3 = nv3.getDateTime() ; 
+                x =  compareXSDDateTime(dt3, dt2) ;
+                if ( x == XSDDateTime.INDETERMINATE )
+                    throw new ARQInternalErrorException("Still get indeterminate comparison") ;
+                return x ;
+            }
+            
+            nv3 = fixupDateTime(nv2) ;
+            if ( nv3 != null )
+            {
+                XSDDateTime dt3 = nv3.getDateTime() ; 
+                x =  compareXSDDateTime(dt1, dt3) ;
+                if ( x == XSDDateTime.INDETERMINATE )
+                    throw new ARQInternalErrorException("Still get indeterminate comparison") ;
+                return x ;
+            }
+            
+            throw new ARQInternalErrorException("Failed to fixup dateTimes") ;
+        }
+        return x ;
+        
+    }
+    
+    // This only diffres by some "dateTime" => "date" 
+    private static int compareDateFO(NodeValue nv1, NodeValue nv2)
+    {
+        XSDDateTime dt1 = nv1.getDate() ;
+        XSDDateTime dt2 = nv2.getDate() ;
+
+        int x =  compareXSDDateTime(dt1, dt2) ;    // Yes - compareDateTIme
+        if ( x == XSDDateTime.INDETERMINATE )
+        {
+            NodeValue nv3 = fixupDate(nv1) ;
+            if ( nv3 != null )
+            {
+                XSDDateTime dt3 = nv3.getDate() ; 
+                x =  compareXSDDateTime(dt3, dt2) ;
+                if ( x == XSDDateTime.INDETERMINATE )
+                    throw new ARQInternalErrorException("Still get indeterminate comparison") ;
+                return x ;
+            }
+            
+            nv3 = fixupDate(nv2) ;
+            if ( nv3 != null )
+            {
+                XSDDateTime dt3 = nv3.getDate() ; 
+                x =  compareXSDDateTime(dt1, dt3) ;
+                if ( x == XSDDateTime.INDETERMINATE )
+                    throw new ARQInternalErrorException("Still get indeterminate comparison") ;
+                return x ;
+            }
+            
+            throw new ARQInternalErrorException("Failed to fixup dateTimes") ;
+        }
+        return x ;
+    }
+    
+    private static NodeValue fixupDateTime(NodeValue nv)
+    {
+        DateTimeStruct dts = DateTimeStruct.parseDateTime(nv.asNode().getLiteralLexicalForm()) ;
+        if ( dts.timezone != null )
+            return null ;
+        {
+            dts.timezone = defaultTimezone ;
+            nv = NodeValue.makeDateTime(dts.toString()) ;
+            if ( ! nv.isDateTime() )
+                throw new ARQInternalErrorException("Failed to reform an xsd:dateTime") ;
+            return nv ;
+        }
+    }
+    
+    private static NodeValue fixupDate(NodeValue nv)
+    {
+        DateTimeStruct dts = DateTimeStruct.parseDate(nv.asNode().getLiteralLexicalForm()) ;
+        if ( dts.timezone != null )
+            return null ;
+        {
+            dts.timezone = defaultTimezone ;
+            nv = NodeValue.makeDate(dts.toString()) ;
+            if ( ! nv.isDate() )
+                throw new ARQInternalErrorException("Failed to reform an xsd:date") ;
+            return nv ;
+        }
+    }
+
+    private static int compareXSDDateTime(XSDDateTime dt1 , XSDDateTime dt2)
     {
         // Returns codes are -1/0/1 but also 2 for "Indeterminate"
         // which occurs when one has a timezone and one does not
         // and they are less then 14 hours apart.
         
+        // F&O has an "implicit timezone" - this code implements the XMLSchema compare algorithm.  
+
         int x = dt1.compare(dt2) ;
         if ( x == XSDDateTime.EQUAL )
             return Expr.CMP_EQUAL ;

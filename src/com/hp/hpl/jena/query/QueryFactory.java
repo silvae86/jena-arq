@@ -99,7 +99,7 @@ public class QueryFactory
      * @param query            Existing, uninitialized query
      * @param queryString      The query string
      * @param baseURI          URI for relative URI expansion
-     * @param syntaxURI          URI for the syntax
+     * @param syntaxURI        URI for the syntax
      * @throws QueryException  Thrown when a parse error occurs
      */
     
@@ -114,8 +114,12 @@ public class QueryFactory
         
         if ( parser == null )
             throw new UnsupportedOperationException("Unrecognized syntax for parsing: "+syntaxURI) ;
-        if ( baseURI != null )
-            baseURI = IRIResolver.resolveGlobal(baseURI) ;
+        
+        // Sort out the baseURI - if that fails, dump in a dummy one and continue.
+        try { baseURI = IRIResolver.chooseBaseURI(baseURI) ; }
+        catch (Exception ex)
+        { baseURI = "http://localhost/defaultBase#" ; }
+
         query.setResolver(new IRIResolver(baseURI)) ;
         return parser.parse(query, queryString) ;
     }

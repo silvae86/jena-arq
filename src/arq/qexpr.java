@@ -122,7 +122,7 @@ public class qexpr
         boolean quiet = cl.contains(quietDecl) ;
 
         if ( cl.contains(strictDecl) )
-            ARQ.getContext().set(ARQ.extensionValueTypes, false) ; 
+            ARQ.setStrictMode() ;
         
         boolean actionCopySubstitute = cl.contains(reduceDecl) ;
         boolean actionPrintPrefix = false ;
@@ -132,7 +132,8 @@ public class qexpr
         for ( Iterator iter = cl.getValues(printDecl).iterator() ; iter.hasNext(); )
         {
             String v = (String)iter.next();
-            if ( v.equalsIgnoreCase("prefix") ) actionPrintPrefix = true ;
+            if ( v.equalsIgnoreCase("prefix") || v.equalsIgnoreCase("op") )
+                actionPrintPrefix = true ;
             else if ( v.equalsIgnoreCase("expr") )   actionPrintSPARQL = true ;
             else
             {
@@ -202,7 +203,7 @@ public class qexpr
     
     static void usage(java.io.PrintStream out)
     {
-        out.println("Usage: expression") ;
+        out.println("Usage: [--print=[prefix|expr]] expression") ;
     }
 
  }

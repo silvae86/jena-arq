@@ -3,42 +3,41 @@
  * [See end of file]
  */
 
-package com.hp.hpl.jena.sparql.suites.optimizer;
+package dev.optimizer;
 
-import junit.framework.*;
+import com.hp.hpl.jena.graph.Node;
+import com.hp.hpl.jena.graph.Triple;
+import com.hp.hpl.jena.rdf.model.Model;
+import com.hp.hpl.jena.util.FileManager;
+import com.hp.hpl.jena.sparql.engine.optimizer.probability.ProbabilityFactory;
+import com.hp.hpl.jena.sparql.engine.optimizer.probability.Probability;
 
-/**
- * All the ARQo tests 
- * @author Markus Stocker
- * @version $Id$
- */
 
-public class OptimizerTestSuite extends TestSuite
-{    
-    static public TestSuite suite()
-    {
-        TestSuite ts = new OptimizerTestSuite() ;
- 
-        // This test has to be executed first, or the test suite has to assure that the optimizer is enabled per default first
-        ts.addTest(TestEnabled.suite()) ;
-        ts.addTest(TestConfig.suite()) ;
-        ts.addTest(TestAPI.suite()) ;
-        ts.addTest(TestData.suite()) ;
-        ts.addTest(TestIndex.suite()) ;
-        ts.addTest(TestPrimeNumberGen.suite()) ;
-        ts.addTest(TestSuiteGraph.suite()) ;
-        ts.addTest(TestSuiteHeuristic.suite()) ;
-        ts.addTest(TestSuiteProbability.suite()) ;
-        ts.addTest(TestSuiteSampling.suite()) ;
-        
-        return ts ;
-    }
-
-	private OptimizerTestSuite()
-	{
-        super("Optimizer");
+public class accuracy 
+{	
+	private static String inGraphFileName = "I:/evaluation/lubm/University0.owl" ;
+	private static String inIndexFileName = "I:/evaluation/lubm/index/sample-index-100.rdf" ;
+	
+	public static void main(String[] args) 
+	{		
+		Triple triple1 = new Triple(Node.ANY, 
+									//RDF.type.asNode(),
+									Node.ANY,
+									Node.createURI("http://www.lehigh.edu/~zhp2/2004/0401/univ-bench.owl#Department")) ;
+		
+		Model model = FileManager.get().loadModel(inGraphFileName) ;
+		Model index = FileManager.get().loadModel(inIndexFileName) ;
+		
+		Probability probability = ProbabilityFactory.loadIndexModel(model, index, null);
+		
+		double s = probability.getSelectivity(triple1) ;
+		double p = probability.getProbability(triple1) ;
+		
+		System.out.println("Selectivity: " + s) ;
+		System.out.println("Probability: " + p) ;
 	}
 }
+
 
 /*
  *  (c) Copyright 2004, 2005, 2006, 2007 Hewlett-Packard Development Company, LP
