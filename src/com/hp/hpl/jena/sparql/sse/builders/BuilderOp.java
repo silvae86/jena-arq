@@ -21,6 +21,7 @@ import com.hp.hpl.jena.sparql.algebra.Table;
 import com.hp.hpl.jena.sparql.algebra.op.*;
 import com.hp.hpl.jena.sparql.core.BasicPattern;
 import com.hp.hpl.jena.sparql.core.Quad;
+import com.hp.hpl.jena.sparql.core.TriplePath;
 import com.hp.hpl.jena.sparql.core.VarExprList;
 import com.hp.hpl.jena.sparql.expr.E_Aggregator;
 import com.hp.hpl.jena.sparql.expr.Expr;
@@ -36,10 +37,10 @@ public class BuilderOp
     public static Op build(Item item)
     {
         if (item.isNode() )
-            BuilderBase.broken(item, "Attempt to build op structure from a plain node") ;
+            BuilderLib.broken(item, "Attempt to build op structure from a plain node") ;
 
         if (item.isSymbol() )
-            BuilderBase.broken(item, "Attempt to build op structure from a bare symbol") ;
+            BuilderLib.broken(item, "Attempt to build op structure from a bare symbol") ;
 
         BuilderOp b = new BuilderOp();
         return b.build(item.getList()) ;
@@ -49,38 +50,39 @@ public class BuilderOp
 
     public BuilderOp()
     {
-        dispatch.put(Tags.tagBGP, buildBGP) ;
-        dispatch.put(Tags.tagQuadPattern, buildQuadPattern) ;
-        dispatch.put(Tags.tagFilter, buildFilter) ;
-        dispatch.put(Tags.tagGraph, buildGraph) ;
-        dispatch.put(Tags.tagService, buildService) ;
-        dispatch.put(Tags.tagProc, buildProcedure) ;
-        dispatch.put(Tags.tagJoin, buildJoin) ;
-        dispatch.put(Tags.tagStage, buildStage) ;
-        dispatch.put(Tags.tagLeftJoin, buildLeftJoin) ;
-        dispatch.put(Tags.tagDiff, buildDiff) ;
-        dispatch.put(Tags.tagUnion, buildUnion) ;
+        dispatch.put(Tags.tagBGP,           buildBGP) ;
+        dispatch.put(Tags.tagQuadPattern,   buildQuadPattern) ;
+        dispatch.put(Tags.tagTriple,        buildTriple) ;
+        dispatch.put(Tags.tagTriplePath,    buildTriplePath) ;
+        dispatch.put(Tags.tagFilter,        buildFilter) ;
+        dispatch.put(Tags.tagGraph,         buildGraph) ;
+        dispatch.put(Tags.tagService,       buildService) ;
+        dispatch.put(Tags.tagProc,          buildProcedure) ;
+        dispatch.put(Tags.tagPropFunc,      buildPropertyFunction) ;
+        dispatch.put(Tags.tagJoin,          buildJoin) ;
+        dispatch.put(Tags.tagSequence,      buildSequence) ;
+        dispatch.put(Tags.tagLeftJoin,      buildLeftJoin) ;
+        dispatch.put(Tags.tagDiff,          buildDiff) ;
+        dispatch.put(Tags.tagUnion,         buildUnion) ;
 
-        dispatch.put(Tags.tagToList, buildToList) ;
-        dispatch.put(Tags.tagGroupBy, buildGroupBy) ;
-        dispatch.put(Tags.tagOrderBy, buildOrderBy) ;
-        dispatch.put(Tags.tagProject, buildProject) ;
-        dispatch.put(Tags.tagDistinct, buildDistinct) ;
-        dispatch.put(Tags.tagReduced, buildReduced) ;
-        dispatch.put(Tags.tagAssign, buildAssign) ;
-        dispatch.put(Tags.symAssign, buildAssign) ;
-        dispatch.put(Tags.tagSlice, buildSlice) ;
+        dispatch.put(Tags.tagToList,        buildToList) ;
+        dispatch.put(Tags.tagGroupBy,       buildGroupBy) ;
+        dispatch.put(Tags.tagOrderBy,       buildOrderBy) ;
+        dispatch.put(Tags.tagProject,       buildProject) ;
+        dispatch.put(Tags.tagDistinct,      buildDistinct) ;
+        dispatch.put(Tags.tagReduced,       buildReduced) ;
+        dispatch.put(Tags.tagAssign,        buildAssign) ;
+        dispatch.put(Tags.symAssign,        buildAssign) ;
+        dispatch.put(Tags.tagSlice,         buildSlice) ;
 
-        dispatch.put(Tags.tagTable, buildTable) ;
-        dispatch.put(Tags.tagNull, buildNull) ;
+        dispatch.put(Tags.tagTable,         buildTable) ;
+        dispatch.put(Tags.tagNull,          buildNull) ;
+        dispatch.put(Tags.tagLabel,         buildLabel) ;
     }
 
     // The main recursive build operation.
     public Op build(ItemList list)
     {
-        if ( list == null )
-            list = null ;
-
         Item head = list.get(0) ;
         String tag = head.getSymbol() ;
 
@@ -88,7 +90,7 @@ public class BuilderOp
         if ( bob != null )
             return bob.make(list) ;
         else
-            BuilderBase.broken(head, "Unrecognized algebra operation: "+tag) ;
+            BuilderLib.broken(head, "Unrecognized algebra operation: "+tag) ;
         return null ;
     }
 
@@ -148,7 +150,7 @@ public class BuilderOp
             {
                 Item item = list.get(i) ;
                 if ( ! item.isList() )
-                    BuilderBase.broken(item, "Not a triple structure") ;
+                    BuilderLib.broken(item, "Not a triple structure") ;
                 Triple t = BuilderGraph.buildTriple(item.getList()) ;
                 triples.add(t) ; 
             }
@@ -166,14 +168,14 @@ public class BuilderOp
             {
                 Item item = list.get(i) ;
                 if ( ! item.isList() )
-                    BuilderBase.broken(item, "Not a quad structure") ;
+                    BuilderLib.broken(item, "Not a quad structure") ;
                 Quad q = BuilderGraph.buildQuad(item.getList()) ;
                 if ( g == null )
                     g = q.getGraph() ;
                 else
                 {
                     if ( ! g.equals(q.getGraph()) )
-                        BuilderBase.broken(item, "Quad has different graph node in quadapttern: "+q) ;
+                        BuilderLib.broken(item, "Quad has different graph node in quadapttern: "+q) ;
                 }
                 bp.add(q.getTriple()) ;
                 
@@ -184,16 +186,32 @@ public class BuilderOp
         }
     } ;
 
+    final protected Build buildTriple = new Build(){
+        public Op make(ItemList list)
+        {
+            Triple t = BuilderGraph.buildTriple(list) ;
+            return new OpTriple(t) ;
+        }} ;
+    
+    
+    final protected Build buildTriplePath = new Build(){
+        public Op make(ItemList list)
+        {
+            TriplePath tp = BuilderPath.buildTriplePath(list) ;
+            return new OpPath(tp) ;
+        }} ;
+    
     final protected Build buildFilter = new Build()
     {
         public Op make(ItemList list)
         {
-            BuilderBase.checkLength(3, list, "Malformed filter") ;
+            BuilderLib.checkLength(3, list, "Malformed filter") ;
             Item itemExpr = list.get(1) ;
             Item itemOp = list.get(2) ;
 
             Op op = build(itemOp.getList()) ;
             ExprList exprList = BuilderExpr.buildExprOrExprList(itemExpr) ;
+            //exprList = ExprList.splitConjunction(exprList) ;
             return OpFilter.filter(exprList, op) ;
         }
     } ;
@@ -202,7 +220,7 @@ public class BuilderOp
     {
         public Op make(ItemList list)
         {
-            BuilderBase.checkLength(3, list, "Join") ;
+            BuilderLib.checkLength(3, list, "Join") ;
             Op left = build(list, 1) ;
             Op right  = build(list, 2) ;
             Op op = OpJoin.create(left, right) ;
@@ -210,14 +228,17 @@ public class BuilderOp
         }
     } ;
 
-    final protected Build buildStage = new Build()
+    final protected Build buildSequence = new Build()
     {
         public Op make(ItemList list)
         {
-            BuilderBase.checkLength(3, list, "Stage") ;
-            Op left = build(list, 1) ;
-            Op right  = build(list, 2) ;
-            Op op = OpStage.create(left, right) ;
+            BuilderLib.checkLengthAtLeast(2, list, "Sequence") ;
+            OpSequence op = OpSequence.create() ;
+            for ( int i = 1 ; i < list.size() ; i++ )
+            {
+                Op sub = build(list, i) ;
+                op.add(sub) ;
+            }
             return op ;
         }
     } ;
@@ -226,7 +247,7 @@ public class BuilderOp
     {
         public Op make(ItemList list)
         {
-            BuilderBase.checkLength(3, 4, list, "leftjoin: wanted 2 or 3 arguments") ;
+            BuilderLib.checkLength(3, 4, list, "leftjoin: wanted 2 or 3 arguments") ;
             Op left = build(list, 1) ;
             Op right  = build(list, 2) ;
             Expr expr = null ;
@@ -241,7 +262,7 @@ public class BuilderOp
     {
         public Op make(ItemList list)
         {
-            BuilderBase.checkLength(3, 4, list, "diff: wanted 2 arguments") ;
+            BuilderLib.checkLength(3, 4, list, "diff: wanted 2 arguments") ;
             Op left = build(list, 1) ;
             Op right  = build(list, 2) ;
             Op op = OpDiff.create(left, right) ;
@@ -253,7 +274,7 @@ public class BuilderOp
     {
         public Op make(ItemList list)
         {
-            BuilderBase.checkLength(3, list, "union") ;
+            BuilderLib.checkLength(3, list, "union") ;
             Op left = build(list, 1) ;
             Op right  = build(list, 2) ;
             Op op = new OpUnion(left, right) ;
@@ -265,7 +286,7 @@ public class BuilderOp
     {
         public Op make(ItemList list)
         {
-            BuilderBase.checkLength(3, list, "graph") ;
+            BuilderLib.checkLength(3, list, "graph") ;
             Node graph = BuilderNode.buildNode(list.get(1)) ;
             Op sub  = build(list, 2) ;
             return new OpGraph(graph, sub) ;
@@ -276,10 +297,10 @@ public class BuilderOp
     {
         public Op make(ItemList list)
         {
-            BuilderBase.checkLength(3, list, "service") ;
+            BuilderLib.checkLength(3, list, "service") ;
             Node service = BuilderNode.buildNode(list.get(1)) ;
             if ( ! service.isURI() && ! service.isVariable() )
-                BuilderBase.broken(list, "Service must provide a URI or variable") ;
+                BuilderLib.broken(list, "Service must provide a URI or variable") ;
             Op sub  = build(list, 2) ;
             return new OpService(service, sub) ;
         }
@@ -290,39 +311,42 @@ public class BuilderOp
         public Op make(ItemList list)
         {
             // (proc <foo> (args) form)
-            BuilderBase.checkLength(4, 5, list, "proc") ;
+            BuilderLib.checkLength(4, list, "proc") ;
             Node procId = BuilderNode.buildNode(list.get(1)) ;
-            if ( ! procId.isURI() && ! procId.isVariable() )
-                BuilderBase.broken(list, "Procedure name must be a URI") ;
-
-            // Arguments
-            // Either a direct form (1 arg list) or a propertry function (2 arg lists)
-            if ( list.size() == 5 )
-            {
-                // Arg list vs single term.
-                PropFuncArg subjArg = read(list.get(2)) ;
-                PropFuncArg objArg = read(list.get(3)) ;
-                Op sub  = build(list, 4) ;
-                return new OpProcedure(procId, subjArg, objArg, sub) ;
-            }
-            else
-            {
-                ExprList args = BuilderExpr.buildExprList(list.get(2)) ;
-                Op sub  = build(list, 3) ;
-                return new OpProcedure(procId, args, sub) ;
-            }
+            if ( ! procId.isURI() )
+                BuilderLib.broken(list, "Procedure name must be a URI") ;
+            ExprList args = BuilderExpr.buildExprOrExprList(list.get(2)) ;
+            Op sub  = build(list, 3) ;
+            return new OpProcedure(procId, args, sub) ;
         }
 
     } ;
 
+    final protected Build buildPropertyFunction = new Build()
+    {
+        public Op make(ItemList list)
+        {
+            // (proc <foo> (subject args) (object args) form)
+            BuilderLib.checkLength(5, list, "propfunc") ;
+            Node property = BuilderNode.buildNode(list.get(1)) ;
+            
+            if ( ! property.isURI() )
+                BuilderLib.broken(list, "Property function name must be a URI") ;
 
-    static final private PropFuncArg read(Item item)
+            PropFuncArg subjArg = readPropFuncArg(list.get(2)) ;
+            PropFuncArg objArg = readPropFuncArg(list.get(3)) ;
+            Op sub  = build(list, 4) ;
+            return new OpPropFunc(property, subjArg, objArg, sub) ;
+        }
+    } ;
+    
+    static final private PropFuncArg readPropFuncArg(Item item)
     {
         if ( item.isNode() )
             return new PropFuncArg(BuilderNode.buildNode(item)) ;
         if ( item.isList() )
             return new PropFuncArg(BuilderNode.buildNodeList(item)) ;
-        BuilderBase.broken(item, "Expected a property function argument (node or list of nodes") ;
+        BuilderLib.broken(item, "Expected a property function argument (node or list of nodes") ;
         return null ;
     }
 
@@ -330,7 +354,7 @@ public class BuilderOp
     {
         public Op make(ItemList list)
         {
-            BuilderBase.checkLength(2, list, "tolist") ;
+            BuilderLib.checkLength(2, list, "tolist") ;
             Op sub = build(list, 1) ;
             Op op = new OpList(sub) ;
             return op ;
@@ -343,7 +367,7 @@ public class BuilderOp
         // See buildProject
         public Op make(ItemList list)
         {
-            BuilderBase.checkLength(3, 4, list,  "Group") ;
+            BuilderLib.checkLength(3, 4, list,  "Group") ;
             // GroupBy
             VarExprList vars = BuilderExpr.buildNamedExprList(list.get(1).getList()) ;
             List aggregators = new ArrayList() ;
@@ -357,7 +381,7 @@ public class BuilderOp
                 {
                     Expr expr = (Expr)iter.next() ;
                     if ( ! ( expr instanceof E_Aggregator ) )
-                        BuilderBase.broken(list, "Not a aggregate expression: "+expr) ;
+                        BuilderLib.broken(list, "Not a aggregate expression: "+expr) ;
                 }
             }
             Op sub = build(list, list.size()-1) ;
@@ -371,7 +395,7 @@ public class BuilderOp
     {
         public Op make(ItemList list)
         {
-            BuilderBase.checkLength(3, list,  "Order") ;
+            BuilderLib.checkLength(3, list,  "Order") ;
             ItemList conditions = list.get(1).getList() ;
             
             // Maybe tagged (asc, (desc or a raw expression)
@@ -396,8 +420,8 @@ public class BuilderOp
         if ( item.isTagged("asc") || item.isTagged("desc") )
         {
             
-            BuilderBase.checkList(item) ;
-            BuilderBase.checkLength(2, item.getList(), "Direction corrupt") ;
+            BuilderLib.checkList(item) ;
+            BuilderLib.checkLength(2, item.getList(), "Direction corrupt") ;
             if ( item.isTagged("asc") )
                 direction = Query.ORDER_ASCENDING ;
             else
@@ -416,7 +440,7 @@ public class BuilderOp
     {
         public Op make(ItemList list)
         {
-            BuilderBase.checkLength(3, list, "project") ;
+            BuilderLib.checkLength(3, list, "project") ;
             List x = BuilderNode.buildVars(list.get(1).getList()) ; 
             Op sub = build(list, 2) ;
             return new OpProject(sub, x) ;
@@ -428,7 +452,7 @@ public class BuilderOp
     {
         public Op make(ItemList list)
         {
-            BuilderBase.checkLength(2, list, "distinct") ;
+            BuilderLib.checkLength(2, list, "distinct") ;
             Op sub = build(list, 1) ;
             return new OpDistinct(sub) ;
         }
@@ -438,7 +462,7 @@ public class BuilderOp
     {
         public Op make(ItemList list)
         {
-            BuilderBase.checkLength(2, list, "reduced") ;
+            BuilderLib.checkLength(2, list, "reduced") ;
             Op sub = build(list, 1) ;
             return new OpReduced(sub) ;
         }
@@ -448,7 +472,7 @@ public class BuilderOp
     {
         public Op make(ItemList list)
         {
-            BuilderBase.checkLength(3, list, "assign") ;
+            BuilderLib.checkLength(3, list, "assign") ;
             VarExprList x = BuilderExpr.buildNamedExprList(list.get(1).getList()) ; 
             Op sub = build(list, 2) ;
             return new OpAssign(sub, x) ;
@@ -461,7 +485,7 @@ public class BuilderOp
     {
         public Op make(ItemList list)
         {
-            BuilderBase.checkLength(4, list, "slice") ;
+            BuilderLib.checkLength(4, list, "slice") ;
             long start = BuilderNode.buildInt(list, 1, -1) ;
             long length = BuilderNode.buildInt(list, 2, -1) ;
 
@@ -479,12 +503,50 @@ public class BuilderOp
     {
         public Op make(ItemList list)
         {
-            BuilderBase.checkLength(1, list, "null") ;
-            return new OpNull() ;
+            BuilderLib.checkLength(1, list, Tags.tagNull) ;
+            return OpNull.create() ;
         }
     } ;
 
+    final protected Build buildLabel = new Build()
+    {
+        public Op make(ItemList list)
+        {
+            BuilderLib.checkLength(2, 3, list, Tags.tagLabel) ;
+            Item label = list.get(1) ;
+            Object str = null ;
+            if ( label.isSymbol() )
+                str = label.getSymbol() ;
+            else if ( label.isNode() )
+            {
+                if ( label.getNode().isLiteral() )
+                {
+                    if ( label.getNode().getLiteralLanguage() == null ||
+                        label.getNode().getLiteralLanguage().equals("") ) ;
+                    str = label.getNode().getLiteralLexicalForm() ;
+                }
+                else
+                    str = label.getNode() ;
+            }
+            else
+                BuilderLib.broken("No a symbol or a node") ;
+            
+            if ( str == null )
+                str = label.toString() ;
+            
+            Op op = null ;
+            
+            if ( list.size() == 3 )
+                op = build(list, 2) ;
+            return OpLabel.create(str, op) ;
+//            if ( op == null )
+//                return new OpLabel(str) ;
+//            else
+//                return new OpLabel(str , op) ;
+        }
+    } ;
 }
+
 /*
  * (c) Copyright 2006, 2007, 2008 Hewlett-Packard Development Company, LP
  * All rights reserved.

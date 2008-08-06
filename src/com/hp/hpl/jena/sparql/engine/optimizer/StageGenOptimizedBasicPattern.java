@@ -12,10 +12,8 @@ import com.hp.hpl.jena.mem.faster.GraphMemFaster;
 import com.hp.hpl.jena.sparql.ARQException;
 import com.hp.hpl.jena.sparql.core.BasicPattern;
 import com.hp.hpl.jena.sparql.engine.ExecutionContext;
-import com.hp.hpl.jena.sparql.engine.main.Stage;
-import com.hp.hpl.jena.sparql.engine.main.StageBasic;
-import com.hp.hpl.jena.sparql.engine.main.StageGenerator;
-import com.hp.hpl.jena.sparql.engine.main.StageList;
+import com.hp.hpl.jena.sparql.engine.QueryIterator;
+import com.hp.hpl.jena.sparql.engine.main.*;
 import com.hp.hpl.jena.sparql.util.Context;
 import com.hp.hpl.jena.sparql.engine.optimizer.core.BasicPatternOptimizer;
 import com.hp.hpl.jena.sparql.engine.optimizer.util.Constants;
@@ -33,6 +31,7 @@ public class StageGenOptimizedBasicPattern implements StageGenerator
 {
 	private StageGenerator other = null ;
 	private Config config = null ;
+	private StageGenerator basic = new StageGenBasicPattern() ;
 	
 	public StageGenOptimizedBasicPattern(StageGenerator other, Config config)
 	{	
@@ -45,13 +44,13 @@ public class StageGenOptimizedBasicPattern implements StageGenerator
 	 * is statically optimized (i.e. reordered by some heuristics, e.g. selectivity estimation)
 	 * 
 	 * @param pattern
+	 * @param input
 	 * @param execCxt
-	 * @return StageList
+	 * @return QueryIterator
 	 * @see com.hp.hpl.jena.sparql.engine.main.StageGenerator#compile(com.hp.hpl.jena.sparql.core.BasicPattern, com.hp.hpl.jena.sparql.engine.ExecutionContext)
 	 */
-	public StageList compile(BasicPattern pattern, ExecutionContext execCxt)
+	public QueryIterator execute(BasicPattern pattern, QueryIterator input, ExecutionContext execCxt)
 	{
-		StageList sList = new StageList() ;
 		Context context = execCxt.getContext() ;
 		Graph graph = execCxt.getActiveGraph() ;
 		
@@ -72,15 +71,12 @@ public class StageGenOptimizedBasicPattern implements StageGenerator
 			if (! isConsistent(pattern, optimized))
 				throw new ARQException("Optimizer returned an inconsistent pattern: " + pattern + " " + optimized) ;
 			
-			Stage basicStage = new StageBasic(optimized) ;
-			sList.add(basicStage) ;
-        
-			return sList ;
+			return basic.execute(optimized, input, execCxt) ;
 		}
 		
 		context.set(Constants.isEnabled, false) ;
 		
-		return other.compile(pattern, execCxt) ;
+		return other.execute(pattern, input, execCxt) ;
 	}
 	
 	private boolean isConsistent(BasicPattern pattern, BasicPattern optimized)

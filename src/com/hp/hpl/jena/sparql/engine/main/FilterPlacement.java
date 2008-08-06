@@ -15,7 +15,7 @@ import com.hp.hpl.jena.sparql.algebra.OpVars;
 import com.hp.hpl.jena.sparql.algebra.op.OpBGP;
 import com.hp.hpl.jena.sparql.algebra.op.OpJoin;
 import com.hp.hpl.jena.sparql.algebra.op.OpProcedure;
-import com.hp.hpl.jena.sparql.algebra.op.OpStage;
+import com.hp.hpl.jena.sparql.algebra.op.OpSequence;
 import com.hp.hpl.jena.sparql.core.BasicPattern;
 import com.hp.hpl.jena.sparql.engine.ExecutionContext;
 import com.hp.hpl.jena.sparql.engine.QueryIterator;
@@ -44,7 +44,7 @@ public class FilterPlacement
     // --------------------------------
     // Basic Graph Patterns
     
-    public QueryIterator placeFiltersBGP(ExprList exprs, BasicPattern pattern, QueryIterator input)
+    public QueryIterator X_placeFiltersBGP(ExprList exprs, BasicPattern pattern, QueryIterator input)
     {
         if ( ! doFilterPlacement )
         {
@@ -119,26 +119,26 @@ public class FilterPlacement
 
     // --------------------------------
     // Placement in stages and joins.
-    // Joins may in trun involve stages and BGPs.
+    // Joins may, in turn, involve stages and BGPs.
     
-    public QueryIterator placeFiltersStage(ExprList exprs, OpStage opStage, QueryIterator input)
+    public QueryIterator X_placeFiltersStage(ExprList exprs, OpSequence opSequence, QueryIterator input)
     {
         if ( ! doFilterPlacement )
-            return buildOpFilter(exprs, opStage, input) ;
+            return buildOpFilter(exprs, opSequence, input) ;
         Set varScope = new HashSet() ;
-        QueryIterator qIter = placeFilters(exprs, opStage, varScope, input) ;
+        QueryIterator qIter = placeFilters(exprs, opSequence, varScope, input) ;
         // Insert any remaining filter expressions regardless.
         qIter = buildFilter(exprs, qIter) ;
         return qIter ;
     }
     
-    private QueryIterator placeFilters(ExprList exprs, OpStage opStage, Set varScope, QueryIterator input)
+    private QueryIterator placeFilters(ExprList exprs, OpSequence opSequence, Set varScope, QueryIterator input)
     {
-        List ops = stages(opStage) ;
+        List ops = stages(opSequence) ;
         return placeFilters(exprs, ops, varScope, input) ;
     }
 
-    public QueryIterator placeFiltersJoin(ExprList exprs, OpJoin opJoin, QueryIterator input)
+    public QueryIterator X_placeFiltersJoin(ExprList exprs, OpJoin opJoin, QueryIterator input)
     {
         if ( ! doFilterPlacement )
             return buildOpFilter(exprs, opJoin, input) ;
@@ -156,7 +156,8 @@ public class FilterPlacement
         return placeFilters(exprs, ops, varScope, input) ;
     }
      
-    public QueryIterator placeFiltersProcedure(ExprList exprs, OpProcedure opProc, QueryIterator input)
+    // Err - not sure this is useful.
+    public QueryIterator X_placeFiltersProcedure(ExprList exprs, OpProcedure opProc, QueryIterator input)
     {
         if ( ! doFilterPlacement )
             return buildOpFilter(exprs, opProc, input) ;
@@ -169,24 +170,13 @@ public class FilterPlacement
     
     private QueryIterator placeFilters(ExprList exprs, OpProcedure opProc, Set varScope, QueryIterator input)
     {
-        if ( false )
-        {
-            if ( opProc.getArgs() != null )
-            {}
-            else
-            {
-                opProc.getSubjectArgs() ;
-                opProc.getObjectArgs() ;
-            }
-        }
-        
         return compiler.compileOp(opProc, input) ;
     }
     
     // --------------------------------
     
     // Placement for filters in a list of ops where the filter can be placed solely
-    // on var definedness (so Join, Stage).
+    // on var definedness (so Join, Sequence).
     
     private QueryIterator placeFilters(ExprList exprs, List ops, Set varScope, QueryIterator input)
     { 
@@ -201,15 +191,15 @@ public class FilterPlacement
         {
             Op op = (Op)iter.next() ;
             
-            // And push into any BGPs or OpStages if possible.
+            // And push into any BGPs or OpSequence if possible.
             if ( op instanceof OpBGP )
             {
                 OpBGP bgp = (OpBGP)op ;
                 BasicPattern pattern = bgp.getPattern() ;
                 qIter = placeFilters(exprs, pattern, varScope, qIter) ;
             }
-            else if ( op instanceof OpStage )
-                qIter = placeFilters(exprs, (OpStage)op, varScope, qIter) ;
+            else if ( op instanceof OpSequence )
+                qIter = placeFilters(exprs, (OpSequence)op, varScope, qIter) ;
             else if ( op instanceof OpJoin )
                 qIter = placeFilters(exprs, (OpJoin)op, varScope, qIter) ;
             else if ( op instanceof OpProcedure )
@@ -229,31 +219,36 @@ public class FilterPlacement
     // This code flattens join trees.
     
     // --------------------------------
-        // Stages
-        
-        // Flattens OpStage trees.
-        // (Which are usually left-nested lists).
-        // See joins.  Mutter, mutter.
-        
-        private static List stages(OpStage base)
-        {
-            List stages = new ArrayList() ;
-            stages(base, stages) ;
-            return stages ;
-       }
+    // Stages
 
-    private static void stages(Op base, List stages)
+    // Flattens OpSequence trees.
+    // (Which are usually left-nested lists).
+    // See joins.  Mutter, mutter.
+
+    private static List stages(OpSequence base)
     {
-        while ( base instanceof OpStage )
-        {
-            OpStage join = (OpStage)base ;
-            Op left = join.getLeft() ; 
-            stages(left, stages) ;
-            base = join.getRight() ;
-        }
-        // Not a stage - add it.
-        stages.add(base) ;
+        return base.getElements() ;
     }
+    
+//    private static List stages(OpSequence base)
+//    {
+//        List stages = new ArrayList() ;
+//        stages(base, stages) ;
+//        return stages ;
+//    }
+//
+//    private static void stages(Op base, List stages)
+//    {
+//        while ( base instanceof OpSequence )
+//        {
+//            OpSequence join = (OpSequence)base ;
+//            Op left = join.getLeft() ; 
+//            stages(left, stages) ;
+//            base = join.getRight() ;
+//        }
+//        // Not a stage - add it.
+//        stages.add(base) ;
+//    }
 
     private static List joins(OpJoin base)
     {

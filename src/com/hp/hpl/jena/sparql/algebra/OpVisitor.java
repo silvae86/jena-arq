@@ -13,19 +13,23 @@ public interface OpVisitor
     // Op0
     public void visit(OpBGP opBGP) ;
     public void visit(OpQuadPattern quadPattern) ;
+    public void visit(OpTriple opTriple) ;
+    public void visit(OpPath opPath) ;
     public void visit(OpTable opTable) ;
     public void visit(OpNull opNull) ;
     
     //Op1
     public void visit(OpProcedure opProc) ;
+    public void visit(OpPropFunc opPropFunc) ;
     public void visit(OpFilter opFilter) ;
     public void visit(OpGraph opGraph) ;
     public void visit(OpService opService) ;
     public void visit(OpDatasetNames dsNames) ;
+    public void visit(OpLabel opLabel) ;
     
     // Op2
     public void visit(OpJoin opJoin) ;
-    public void visit(OpStage opStage) ;
+    public void visit(OpSequence opSequence) ;
     public void visit(OpLeftJoin opLeftJoin) ;
     public void visit(OpDiff opDiff) ;
     public void visit(OpUnion opUnion) ;

@@ -13,6 +13,7 @@ import com.hp.hpl.jena.graph.Node;
 import com.hp.hpl.jena.sparql.ARQInternalErrorException;
 import com.hp.hpl.jena.sparql.engine.binding.Binding;
 import com.hp.hpl.jena.sparql.engine.binding.BindingKey;
+import com.hp.hpl.jena.sparql.function.FunctionEnv;
 
 /** Splits bindings by their keys and manages one accumulator per key
  * 
@@ -24,7 +25,7 @@ public abstract class AggregatorBase implements Aggregator
     private Map buckets = new HashMap() ;   // Bindingkey => Accumulator
 
     final
-    public void accumulate(BindingKey key, Binding binding)
+    public void accumulate(BindingKey key, Binding binding, FunctionEnv functionEnv)
     {
         Accumulator acc = (Accumulator)buckets.get(key) ;
         if ( acc == null )
@@ -32,7 +33,7 @@ public abstract class AggregatorBase implements Aggregator
             acc = createAccumulator() ;
             buckets.put(key, acc) ;
         }
-        acc.accumulate(binding) ;
+        acc.accumulate(binding, functionEnv) ;
     }
 
     protected abstract Accumulator createAccumulator() ;

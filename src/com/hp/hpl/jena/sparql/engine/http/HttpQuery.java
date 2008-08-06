@@ -5,6 +5,7 @@
 
 package com.hp.hpl.jena.sparql.engine.http;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -13,6 +14,8 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -22,6 +25,7 @@ import com.hp.hpl.jena.shared.JenaException;
 import com.hp.hpl.jena.sparql.ARQInternalErrorException;
 import com.hp.hpl.jena.sparql.util.Base64;
 import com.hp.hpl.jena.sparql.util.Convert;
+import com.hp.hpl.jena.util.FileUtils;
 
 /** Create an execution object for performing a query on a model
  *  over HTTP.  This is the main protocol engine for HTTP query.
@@ -300,6 +304,31 @@ public class HttpQuery extends Params
             // Request suceeded
             InputStream in = httpConnection.getInputStream() ;
             
+            if ( false )
+            {
+                // Dump the reply
+                Map map = httpConnection.getHeaderFields() ;
+                for ( Iterator iter = map.keySet().iterator() ; iter.hasNext() ; )
+                {
+                    String k = (String)iter.next();
+                    List v = (List)map.get(k) ;
+                    System.out.println(k+" = "+v) ;
+                }
+                
+                // Dump response body
+                StringBuffer b = new StringBuffer(1000) ;
+                byte[] chars = new byte[1000] ;
+                while(true)
+                {
+                    int x = in.read(chars) ;
+                    if ( x < 0 ) break ;
+                    b.append(new String(chars, 0, x, FileUtils.encodingUTF8)) ;
+                }
+                System.out.println(b.toString()) ;
+                System.out.flush() ;
+                // Reset
+                in = new ByteArrayInputStream(b.toString().getBytes(FileUtils.encodingUTF8)) ;
+            }
             return in ;
         }
         catch (IOException ioEx)

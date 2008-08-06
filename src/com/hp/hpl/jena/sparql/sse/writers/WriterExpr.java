@@ -13,17 +13,25 @@ import com.hp.hpl.jena.sparql.expr.ExprVar;
 import com.hp.hpl.jena.sparql.expr.ExprVisitor;
 import com.hp.hpl.jena.sparql.expr.NodeValue;
 import com.hp.hpl.jena.sparql.serializer.SerializationContext;
+import com.hp.hpl.jena.sparql.util.IndentedLineBuffer;
 import com.hp.hpl.jena.sparql.util.IndentedWriter;
 
 public class WriterExpr
 {
     
-    public static void output(IndentedWriter out, ExprList exprs, SerializationContext sCxt)
+    public static String asString(Expr expr)
     {
-        output(out, exprs, true, sCxt) ;
+        IndentedLineBuffer b = new IndentedLineBuffer() ;
+        output(b.getIndentedWriter(), expr, null) ;
+        return b.asString() ;
     }
     
-    private static void output(IndentedWriter out, ExprList exprs, boolean withTag, SerializationContext sCxt)
+    public static void output(IndentedWriter out, ExprList exprs, SerializationContext sCxt)
+    {
+        output(out, exprs, true, true, sCxt) ;
+    }
+    
+    public static void output(IndentedWriter out, ExprList exprs, boolean withTag, boolean unlist, SerializationContext sCxt)
     {
         if ( exprs.size() == 0 )
         {
@@ -31,19 +39,20 @@ public class WriterExpr
             return ;
         }
         
-        if ( exprs.size() == 1 )
+        if ( exprs.size() == 1 && unlist )
         {
             output(out, exprs.get(0), sCxt) ;
             return ;
         }
         
         if ( withTag )
-            out.print("(exprlist") ;
+            out.print("(exprlist ") ;
         else
             out.print("(") ;
+        
         for ( int i = 0 ; i < exprs.size() ;  i++ )
         {
-            out.print(" ") ;
+            if ( i != 0 ) out.print(" ") ;
             output(out, exprs.get(i), sCxt) ;
         }
         out.print(")") ;

@@ -129,6 +129,18 @@ public class Item extends ItemLocation
         return x.result ;
     }
     
+    public boolean sameSymbol(Item item)
+    {
+        if ( item.isSymbol() )
+            return sameSymbol(item.getSymbol()) ;
+        return false ;
+    }
+    
+    public boolean sameSymbol(String symbolStr)
+    {
+        return isSymbol() && getSymbol().equalsIgnoreCase(symbolStr) ;
+    }
+    
     // ----
 
     public ItemList getList()           { return list ; }
@@ -180,6 +192,7 @@ public class Item extends ItemLocation
             return false ;
         return symbol.equalsIgnoreCase(testSymbol) ;
     }
+    
     public void visit(ItemVisitor visitor)
     {
         if ( isList() )
@@ -213,8 +226,8 @@ public class Item extends ItemLocation
     {
         IndentedLineBuffer iBuff = new IndentedLineBuffer() ;
         ItemWriter.write(iBuff.getIndentedWriter(), this, null) ;
-        iBuff.getIndentedWriter().ensureStartOfLine() ;
-        iBuff.getIndentedWriter().flush() ;
+        //iBuff.getIndentedWriter().ensureStartOfLine() ;
+        //iBuff.getIndentedWriter().flush() ;
         return iBuff.asString() ;
     }
     

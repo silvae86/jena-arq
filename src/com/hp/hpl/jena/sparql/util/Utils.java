@@ -7,6 +7,7 @@
 package com.hp.hpl.jena.sparql.util;
 
 import java.math.BigDecimal;
+import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
@@ -17,6 +18,7 @@ import com.hp.hpl.jena.datatypes.xsd.XSDDateTime;
 import com.hp.hpl.jena.graph.Node;
 import com.hp.hpl.jena.graph.Triple;
 
+import com.hp.hpl.jena.sparql.core.TriplePath;
 import com.hp.hpl.jena.sparql.core.Var;
 
 /** Miscellaneous operations - not query specific */
@@ -40,7 +42,7 @@ public class Utils
     // javax.xml.datatype.DatatypeFactory.newXMLGregorianCalendar 
 
     // warning all calendar based operations force the timezone
-    // to the default is not present. 
+    // to the default if not present. 
     
     public static String nowAsXSDDateTimeString()
     {
@@ -55,6 +57,15 @@ public class Utils
     public static String XSDDateTime2String(XSDDateTime xdt)
     {
         return xdt.toString() ;
+    }
+    
+    public static String nowAsString()
+    { return nowAsString("yyyy/MM/dd HH:mm:ss") ; }
+    
+    public static String nowAsString(String formatString)
+    {
+        DateFormat df = new SimpleDateFormat(formatString) ;
+        return df.format(new Date()) ;
     }
     
 //    public static XSDDateTime calendarToXSDDateTime(Calendar cal)
@@ -121,7 +132,7 @@ public class Utils
     
     /** Compare two object-things for quality - allow null to be equals to null */
     
-    public static boolean eq(Object obj1, Object obj2)
+    public static boolean equals(Object obj1, Object obj2)
     {
         if ( obj1 == null )
             return obj2 == null ;
@@ -167,6 +178,19 @@ public class Utils
     { 
         // No SPARQL short form.
         return Float.toString(f) ;
+    }
+    
+    public static boolean triplePathIso(TriplePath tp1, TriplePath tp2, NodeIsomorphismMap isoMap)
+    {
+        if ( tp1.isTriple() ^ tp2.isTriple() ) 
+            return false ;
+
+        if ( tp1.isTriple() )
+            return Utils.tripleIso(tp1.asTriple(), tp2.asTriple(), isoMap) ;
+        else
+            return Utils.nodeIso(tp1.getSubject(), tp2.getSubject(), isoMap) && 
+                   Utils.nodeIso(tp1.getObject(), tp2.getObject(), isoMap) &&
+                   tp1.getPath().equalTo(tp2.getPath(), isoMap) ;
     }
     
     public static boolean tripleIso(Triple t1, Triple t2, NodeIsomorphismMap labelMap)

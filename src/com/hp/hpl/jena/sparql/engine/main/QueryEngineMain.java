@@ -7,6 +7,7 @@
 package com.hp.hpl.jena.sparql.engine.main;
 
 import com.hp.hpl.jena.query.Query;
+import com.hp.hpl.jena.sparql.algebra.Algebra;
 import com.hp.hpl.jena.sparql.algebra.AlgebraGenerator;
 import com.hp.hpl.jena.sparql.algebra.Op;
 import com.hp.hpl.jena.sparql.core.DatasetGraph;
@@ -46,6 +47,16 @@ public class QueryEngineMain extends QueryEngineBase
         return qIter ;
     }
     
+//    protected Op createOp(Query query, AlgebraGenerator gen)
+//    {
+//        // Optimize here??  Was context setting possible?
+//        Op op = super.createOp(query, gen) ;
+//        return op ;
+//    }
+    
+    protected Op modifyOp(Op op)
+    { return Algebra.optimize(op) ; }
+    
     // -------- Factory
     
     private static QueryEngineFactory factory = new QueryEngineFactory()
@@ -67,10 +78,7 @@ public class QueryEngineMain extends QueryEngineBase
             QueryEngineMain engine = new QueryEngineMain(op, dataset, binding, context) ;
             return engine.getPlan() ;
         }
-
     } ;
-
-
 }
 
 /*

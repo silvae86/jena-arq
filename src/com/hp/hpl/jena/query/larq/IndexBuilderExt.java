@@ -7,13 +7,8 @@
 package com.hp.hpl.jena.query.larq;
 
 import java.io.File;
-import java.io.IOException;
-import java.io.Reader;
 
-import org.apache.lucene.document.Document;
 import org.apache.lucene.index.IndexWriter;
-
-import com.hp.hpl.jena.rdf.model.RDFNode;
 
 /** Helper class for index creation from external content.
  *  
@@ -23,11 +18,13 @@ import com.hp.hpl.jena.rdf.model.RDFNode;
  *  To update the index once closed, the application should create a new index builder.
  *  Any index readers (e.g. IndexLARQ objects)
  *  need to be recreated and registered.  
+ *  
+ *  @deprecated Backwards compatibility named class - use IndexBuilderNode
  *        
  * @author Andy Seaborne
  */
 
-public class IndexBuilderExt extends IndexBuilderBase
+public class IndexBuilderExt extends IndexBuilderNode
 {
     /** Create an in-memory index */
     public IndexBuilderExt() { super() ; }
@@ -40,28 +37,6 @@ public class IndexBuilderExt extends IndexBuilderBase
     
     /** Create an on-disk index */
     public IndexBuilderExt(String fileDir) { super(fileDir) ; }
-
-    public void index(RDFNode rdfNode, String indexStr)
-    {
-        try {
-            Document doc = new Document() ;
-            LARQ.store(doc, rdfNode.asNode()) ;
-            LARQ.index(doc, indexStr) ;
-            getIndexWriter().addDocument(doc) ;
-        } catch (IOException ex)
-        { throw new ARQLuceneException("index", ex) ; }
-    }
-   
-    public void index(RDFNode rdfNode, Reader indexStream)
-    {
-        try {
-            Document doc = new Document() ;
-            LARQ.store(doc, rdfNode.asNode()) ;
-            LARQ.index(doc, indexStream) ;
-            getIndexWriter().addDocument(doc) ;
-        } catch (IOException ex)
-        { throw new ARQLuceneException("index", ex) ; }
-    }
 }
 
 /*

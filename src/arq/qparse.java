@@ -12,14 +12,16 @@ import java.util.Iterator;
 import arq.cmd.CmdException;
 import arq.cmdline.*;
 
-import com.hp.hpl.jena.query.*;
 import com.hp.hpl.jena.shared.JenaException;
+
 import com.hp.hpl.jena.sparql.ARQInternalErrorException;
 import com.hp.hpl.jena.sparql.core.QueryCheckException;
 import com.hp.hpl.jena.sparql.resultset.ResultSetException;
 import com.hp.hpl.jena.sparql.util.PrintUtils;
 import com.hp.hpl.jena.sparql.util.QueryUtils;
 import com.hp.hpl.jena.sparql.util.Utils;
+
+import com.hp.hpl.jena.query.*;
 
 /** A program to parse and print a query.
  *
@@ -32,11 +34,13 @@ public class qparse extends CmdARQ
     ModQueryOut   modOutput  =    new ModQueryOut() ; 
     ModEngine     modEngine  =    new ModEngine() ;
     protected final ArgDecl argDeclPrint  = new ArgDecl(ArgDecl.HasValue, "print") ;
+    protected final ArgDecl argDeclOpt  = new ArgDecl(ArgDecl.NoValue, "opt", "optimize") ;
     
     boolean printQuery = false ;
     boolean printOp = false ;
     boolean printQuad = false ;
     boolean printPlan = false ;
+    boolean printOpt = false ;
     
     public static void main(String [] argv)
     {
@@ -51,12 +55,15 @@ public class qparse extends CmdARQ
         super.addModule(modEngine) ;
         super.getUsage().startCategory(null) ;
         super.add(argDeclPrint, "--print", "Print in various forms [query, op, quad, plan]") ;
+        super.add(argDeclOpt, "--opt", "Print with algebra-level optimization") ; 
     }
     
     protected void processModulesAndArgs()
     {
         super.processModulesAndArgs() ;
         
+        printOpt = contains(argDeclOpt) ;
+
         for ( Iterator iter = getValues(argDeclPrint).iterator() ; iter.hasNext() ; )
         {
             String arg = (String)iter.next() ;
@@ -66,8 +73,9 @@ public class qparse extends CmdARQ
                       arg.equalsIgnoreCase("algebra") ) { printOp = true ; }
             else if ( arg.equalsIgnoreCase("quad"))     { printQuad = true ; }
             else if ( arg.equalsIgnoreCase("plan"))     { printPlan = true ; }
+            //else if ( arg.equalsIgnoreCase("opt"))      { printOpt = true ; }
             else
-                throw new CmdException("Not a recognized print form: "+arg+" : Choices are: query, op, quad") ;
+                throw new CmdException("Not a recognized print form: "+arg+" : Choices are: query, op, quad.  opt") ;
         }
         
         if ( ! printQuery && ! printOp && ! printQuad && ! printPlan )
@@ -94,12 +102,8 @@ public class qparse extends CmdARQ
     {
         try{
             Query query = modQuery.getQuery() ;
-            //QueryExecution qExec = QueryExecutionFactory.create(query, DatasetFactory.create()) ;
-
-            // Check the query.
-            
             try {
-                QueryUtils.checkQuery(query) ;
+                QueryUtils.checkQuery(query, true) ;
             } catch (QueryCheckException ex)
             {
                 System.err.println() ;
@@ -114,10 +118,20 @@ public class qparse extends CmdARQ
 
             // Print internal forms.
             if ( printOp )
-            { divider() ; modOutput.outputOp(query) ; }
+            { divider() ; modOutput.outputOp(query, false) ; }
             
             if ( printQuad )
-            { divider() ; modOutput.outputQuad(query) ; }
+            { divider() ; modOutput.outputQuad(query, false) ; }
+            
+            if ( printOpt )
+            {
+                // And again after applying the algebra optimizer 
+                if ( printOp )
+                { divider() ; modOutput.outputOp(query, true) ; }
+                
+                if ( printQuad )
+                { divider() ; modOutput.outputQuad(query, true) ; }
+            }
             
             if ( printPlan )
             { 

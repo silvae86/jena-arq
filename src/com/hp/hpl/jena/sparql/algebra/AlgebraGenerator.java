@@ -11,20 +11,21 @@ import java.util.Iterator;
 import java.util.List;
 
 import com.hp.hpl.jena.graph.Node;
-import com.hp.hpl.jena.query.ARQ;
-import com.hp.hpl.jena.query.Query;
+
 import com.hp.hpl.jena.sparql.ARQInternalErrorException;
 import com.hp.hpl.jena.sparql.algebra.op.*;
-import com.hp.hpl.jena.sparql.core.BasicPattern;
-import com.hp.hpl.jena.sparql.core.Var;
-import com.hp.hpl.jena.sparql.core.VarExprList;
+import com.hp.hpl.jena.sparql.algebra.opt.TransformSimplify;
+import com.hp.hpl.jena.sparql.core.*;
 import com.hp.hpl.jena.sparql.expr.Expr;
 import com.hp.hpl.jena.sparql.expr.ExprList;
+import com.hp.hpl.jena.sparql.path.PathCompiler;
 import com.hp.hpl.jena.sparql.syntax.*;
 import com.hp.hpl.jena.sparql.util.ALog;
 import com.hp.hpl.jena.sparql.util.Context;
 import com.hp.hpl.jena.sparql.util.Utils;
 
+import com.hp.hpl.jena.query.ARQ;
+import com.hp.hpl.jena.query.Query;
 
 public class AlgebraGenerator 
 {
@@ -32,9 +33,15 @@ public class AlgebraGenerator
     // Helpful only to write exactly what you mean and test the full query compiler.
     boolean fixedFilterPosition = false ;
     private Context context ;
+    private PathCompiler pathCompiler = new PathCompiler() ;
     
-    // SimplifyEarly=true is the alternative reading of the DAWG
-    // algebra translation algorithm
+    // SimplifyEarly=true is the alternative reading of
+    // the DAWG Algebra translation algorithm. 
+
+    // If we simplify here (early), it changes the SPARQL for OPTIONAL {{ FILTER }}
+    // The  {{}} reslts in (join unit (filter ...)) the filter is not moved
+    // into the LeftJoin.  
+    
     boolean simplifyEarly = false ;         // False is correct setting. 
 
     public AlgebraGenerator(Context context)
@@ -56,14 +63,15 @@ public class AlgebraGenerator
         return op ;
     }
     
-    static Transform simplify = new TransformSimplify() ;
+    protected static Transform simplify = new TransformSimplify() ;
     // Compile any structural element
     public Op compile(Element elt)
     {
         Op op = compileElement(elt) ;
+        Op op2 = op ;
         if ( ! simplifyEarly && simplify != null )
-            op = Transformer.transform(simplify, op) ;
-        return op ;
+            op2 = Transformer.transform(simplify, op) ;
+        return op2;
     }
 
     // This is the operation to call for recursive application of step 4.
@@ -84,10 +92,17 @@ public class AlgebraGenerator
         // This is only here for queries built programmatically
         // (triple patterns not in a group) 
         if ( elt instanceof ElementTriplesBlock )
-            return compileBasicPattern(((ElementTriplesBlock)elt).getTriples()) ;
+            return compileBasicPattern(((ElementTriplesBlock)elt).getPattern()) ;
+        
+        // Ditto.
+        if ( elt instanceof ElementPathBlock )
+            return compilePathBlock(((ElementPathBlock)elt).getPattern()) ;
 
+        if ( elt instanceof ElementSubQuery )
+            return compileElementSubquery((ElementSubQuery)elt) ; 
+        
         if ( elt == null )
-            return new OpNull() ;
+            return OpNull.create() ;
 
         broken("compile(Element)/Not a structural element: "+Utils.className(elt)) ;
         return null ;
@@ -141,17 +156,76 @@ public class AlgebraGenerator
         Op current = OpTable.unit() ;
         ExprList exprList = new ExprList() ;
         
-        for (Iterator iter = groupElt.getElements().listIterator() ; iter.hasNext() ; )
+        // First: get all filters, merge adjacent BGPs.
+        // The ElementGroup is in syntax order. 
+        // This includes BGP-FILTER-BGP
+        // This is a delay from parsing time so a printed query
+        // keeps filters where the query writer put them.
+        List groupElts = finalizeSyntax(groupElt, exprList) ; 
+        
+        // Second: compile the consolidated group elements.
+        for (Iterator iter = groupElts.listIterator() ; iter.hasNext() ; )
         {
             Element elt = (Element)iter.next() ;
             current = compileOneInGroup(elt, current, exprList) ;
         }
             
-        // Filters collected from the group. 
+        // Third: Filters collected from the group. 
         if ( ! exprList.isEmpty() )
             current = OpFilter.filter(exprList, current) ;
         
         return current ;
+    }
+
+    /* Extract filters, merge adjacent BGPs.
+     * Return a list of elements: update the exprList
+     */
+    
+    private List finalizeSyntax(ElementGroup groupElt, ExprList exprList)
+    {
+        List groupElts = new ArrayList() ;
+        BasicPattern prev = null ;
+        
+        for (Iterator iter = groupElt.getElements().listIterator() ; iter.hasNext() ; )
+        {
+            Element elt = (Element)iter.next() ;
+            if ( elt instanceof ElementFilter )
+            {
+                ElementFilter f = (ElementFilter)elt ;
+                exprList.add(f.getExpr()) ;
+                // Does not place it in the returned list.
+                continue ;
+            }
+            
+            if ( ! ( elt instanceof ElementTriplesBlock ) )
+            {
+                prev = null ;
+                groupElts.add(elt) ;
+                continue ;
+            }
+                
+            // It's an ElementTriplesBlock
+            ElementTriplesBlock etb = (ElementTriplesBlock)elt ;
+
+            if ( prev != null )
+            {
+                // Previous was an ElementTriplesBlock.
+                // Merge because they were adjacent in a group
+                // in syntax, so it must have been BGP, Filter, BGP.
+                // Or someone constructed a non-serializable query. 
+                prev.addAll(etb.getPattern()) ;
+                continue ;
+            }
+
+            // New BGP.
+            // Copy - so that any later mergings do not change the original query. 
+
+            ElementTriplesBlock etb2 = new ElementTriplesBlock() ;
+            etb2.getPattern().addAll(etb.getPattern()) ;
+            prev = etb2.getPattern() ;
+            groupElts.add(etb2) ;
+        }
+        return groupElts ;
     }
 
     private Op compileOneInGroup(Element elt, Op current, ExprList exprList)
@@ -160,12 +234,19 @@ public class AlgebraGenerator
         if ( elt instanceof ElementTriplesBlock )
         {
             ElementTriplesBlock etb = (ElementTriplesBlock)elt ;
-            Op op =  compileBasicPattern(etb.getTriples()) ;
+            Op op =  compileBasicPattern(etb.getPattern()) ;
+            return join(current, op) ;
+        }
+        
+        if ( elt instanceof ElementPathBlock )
+        {
+            ElementPathBlock epb = (ElementPathBlock)elt ;
+            Op op =  compilePathBlock(epb.getPattern()) ;
             return join(current, op) ;
         }
         
         // Collect filters
-        if (  elt instanceof ElementFilter )
+        if ( elt instanceof ElementFilter )
         {
             ElementFilter f = (ElementFilter)elt ;
             if ( fixedFilterPosition )
@@ -183,6 +264,13 @@ public class AlgebraGenerator
             return compileElementOptional(eltOpt, current) ;
         }
         
+        if ( elt instanceof ElementSubQuery )
+        {
+            ElementSubQuery elQuery = (ElementSubQuery)elt ;
+            Op op = compileElementSubquery(elQuery) ;
+            return join(current, op) ;
+        }
+        
         // All other elements: compile the element and then join on to the current group expression.
         if ( elt instanceof ElementGroup || 
              elt instanceof ElementNamedGraph ||
@@ -191,6 +279,13 @@ public class AlgebraGenerator
         {
             Op op = compileElement(elt) ;
             return join(current, op) ;
+        }
+        
+        if ( elt instanceof ElementAssign )
+        {
+            ElementAssign assign = (ElementAssign)elt ;
+            Op subOp = OpAssign.assign(current, assign.getVar(), assign.getExpr()) ;
+            return subOp ;
         }
         
         broken("compileDirect/Element not recognized: "+Utils.className(elt)) ;
@@ -216,16 +311,59 @@ public class AlgebraGenerator
         return current ;
     }
     
-    public static boolean AlgebraStaging = true ;
     protected Op compileBasicPattern(BasicPattern pattern)
     {
-        if ( AlgebraStaging )
-        {
-            // Sort out property functions.
-            Op op = PropertyFunctionGenerator.compile(pattern, context) ;
-            return op ;
-        }
+        // Property functions : assume done later.
+        // (Or do as a tranform here.)
         return new OpBGP(pattern) ;
+    }
+    
+    protected Op compilePathBlock(PathBlock pathBlock)
+    {
+        // Step 1 : flatten down to triples where possible. 
+        pathBlock = pathCompiler.reduce(pathBlock) ;
+        
+        //Step 2 : gather into OpBGP(BasicPatterns) or OpPath
+        BasicPattern bp = null ;
+        Op op = null ;
+        
+        for ( Iterator iter = pathBlock.iterator() ; iter.hasNext() ; )
+        {
+            TriplePath obj = (TriplePath)iter.next();
+            if ( obj.isTriple() )
+            {
+                if ( bp == null )
+                    bp = new BasicPattern() ;
+                bp.add(obj.asTriple()) ;
+                continue ;
+            }
+            // Path form.
+            op = flush(bp, op) ;
+            bp = null ;
+                
+            TriplePath tp = (TriplePath)obj ;
+            OpPath opPath = new OpPath(tp) ;
+            op = OpSequence.create(op, opPath) ;
+            continue ;
+        }
+
+        // End.  Finish off any outstanding BGP.
+        op = flush(bp, op) ;
+        return op ;
+    }
+
+    private Op flush(BasicPattern bp, Op op)
+    {
+        if ( bp == null || bp.isEmpty() )
+            return op ;
+
+        OpBGP opBGP = new OpBGP(bp) ;
+        op = OpSequence.create(op, opBGP) ;
+        return op ;
+        
+//        Op op2 = PropertyFunctionGenerator.compile(bp, context) ;
+//        op = OpSequence.create(op, op2) ;
+//        return op ;
     }
     
     protected Op compileElementGraph(ElementNamedGraph eltGraph)
@@ -242,9 +380,40 @@ public class AlgebraGenerator
         return new OpService(serviceNode, sub) ;
     }
     
+    protected Op compileElementSubquery(ElementSubQuery eltSubQuery)
+    {
+        Op sub = this.compile(eltSubQuery.getQuery()) ;
+        return sub ;
+    }
+    
     /** Compile query modifiers */
     public Op compileModifiers(Query query, Op pattern)
     {
+        // Preparation: sort SELECT clause into assignments and projects.
+        VarExprList projectVars = query.getProject() ;
+        
+        VarExprList exprs = new VarExprList() ;
+        List vars = new ArrayList() ;
+        
+        if ( ! projectVars.isEmpty() && ! query.isQueryResultStar())
+        {
+            // Don't project for QueryResultStar so initial bindings show through
+            // in SELECT *
+            if ( projectVars.size() == 0 && query.isSelectType() )
+                ALog.warn(this,"No project variables") ;
+            
+            // Separate assignments and variable projection.
+            for ( Iterator iter = query.getProject().getVars().iterator() ; iter.hasNext(); )
+            {
+                Var v = (Var)iter.next() ;
+                Expr e = query.getProject().getExpr(v) ;
+                if ( e != null )
+                    exprs.add(v, e) ;
+                // Include in project
+                vars.add(v) ;
+            }
+        }
+        
         Op op = pattern ;
         //Modifiers mods = new Modifiers(query) ;
         
@@ -254,22 +423,17 @@ public class AlgebraGenerator
             op = new OpList(op) ;
         
         // ---- GROUP BY
-        if ( query.hasGroupBy() )
-        {
-            // query.getGroupExprs().size() <  query.getGroupVars().size() ;
-            // Wrong.
-            // 1 - need to pass in expressions for grouping, not vars.
-            // 2 - No aggregates yet
+        // ?? Check for aliases introduced via assignments.
+        
+        if ( query.hasGroupBy() || query.getAggregators().size() > 0 )
+            // When there is no GroupBy but there are some aggregates, it's a group of no variables.
             op = new OpGroupAgg(op, query.getGroupBy(), query.getAggregators()) ;
-        }
-        else
-        {
-            if ( query.getAggregators().size() > 0 )
-                // No GroupBy but there are some aggregates.
-                // This is a group of no variables.
-                op = new OpGroupAgg(op,  query.getGroupBy(), query.getAggregators()) ;
-            // Fold into above when certainit works
-        }
+        
+        // ---- Assignments from SELECT and other places (TBD) (so available to ORDER and HAVING)
+        if ( ! exprs.isEmpty() )
+            // Potential rewrites based of assign introducing aliases.
+            op = new OpAssign(op, exprs) ;
+
         // ---- HAVING
         if ( query.hasHaving() )
         {
@@ -285,36 +449,12 @@ public class AlgebraGenerator
             op = new OpOrder(op, query.getOrderBy()) ;
         
         // ---- PROJECT
-        // (ORDER may involve an unselected variable)
         // No projection => initial variables are exposed.
         // Needed for CONSTRUCT and initial bindings + SELECT *
+        // Assignments from expressions down earlier.
         
-        VarExprList projectVars = query.getProject() ;
-        if ( ! projectVars.isEmpty() && ! query.isQueryResultStar())
-        {
-            // Don't project for QueryResultStar so initial bindings show through
-            // in SELECT *
-            if ( projectVars.size() == 0 && query.isSelectType() )
-                ALog.warn(this,"No project variables") ;
-            
-            // Separate assignments and variable projection.
-            VarExprList exprs = new VarExprList() ;
-            List vars = new ArrayList() ;
-            for ( Iterator iter = query.getProject().getVars().iterator() ; iter.hasNext(); )
-            {
-                Var v = (Var)iter.next() ;
-                Expr e = query.getProject().getExpr(v) ;
-                if ( e != null )
-                    exprs.add(v, e) ;
-                // Include in project
-                vars.add(v) ;
-            }
-            
-            if ( ! exprs.isEmpty() )
-                op = new OpAssign(op, exprs) ;
-            if ( vars.size() > 0 )
-                op = new OpProject(op, vars) ;
-        }
+        if ( vars.size() > 0 )
+            op = new OpProject(op, vars) ;
         
         // ---- DISTINCT
         if ( query.isDistinct() )
@@ -335,6 +475,14 @@ public class AlgebraGenerator
     
     protected Op join(Op current, Op newOp)
     { 
+//        if ( current instanceof OpBGP && newOp instanceof OpBGP )
+//        {
+//            OpBGP opBGP = (OpBGP)current ;
+//            opBGP.getPattern().addAll( ((OpBGP)newOp).getPattern() ) ;
+//            return current ;
+//        }
+        
+        
         if ( simplifyEarly )
         {
             if ( OpJoin.isJoinIdentify(current) )

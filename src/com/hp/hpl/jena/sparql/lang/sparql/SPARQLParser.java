@@ -11,14 +11,20 @@ import com.hp.hpl.jena.query.* ;
 import com.hp.hpl.jena.sparql.core.Var ;
 import com.hp.hpl.jena.sparql.syntax.* ;
 import com.hp.hpl.jena.sparql.expr.* ;
+import com.hp.hpl.jena.sparql.path.* ;
+
+
+
 
 
 
 
 public class SPARQLParser extends SPARQLParserBase implements SPARQLParserConstants {
+    private static long UNSET = P_Mod.UNSET ;
+    private static long INF = P_Mod.INF ;
     boolean allowAggregatesInExpressions = false ;
 
-  final public void CompilationUnit() throws ParseException {
+  final public void QueryUnit() throws ParseException {
     Query();
     jj_consume_token(0);
   }
@@ -72,7 +78,7 @@ public class SPARQLParser extends SPARQLParserBase implements SPARQLParserConsta
                     String iri ;
     jj_consume_token(BASE);
     iri = IRI_REF();
-    getQuery().setBaseURI(iri) ;
+    getPrologue().setBaseURI(iri) ;
   }
 
   final public void PrefixDecl() throws ParseException {
@@ -81,7 +87,7 @@ public class SPARQLParser extends SPARQLParserBase implements SPARQLParserConsta
     t = jj_consume_token(PNAME_NS);
     iri = IRI_REF();
         String s = fixupPrefix(t.image, t.beginLine, t.beginColumn) ;
-        getQuery().setPrefix(s, iri) ;
+        getPrologue().setPrefix(s, iri) ;
   }
 
 // ---- Query type clauses
@@ -161,9 +167,7 @@ public class SPARQLParser extends SPARQLParserBase implements SPARQLParserConsta
                           Template t ;
     jj_consume_token(CONSTRUCT);
       getQuery().setQueryConstructType() ;
-      setInConstructTemplate(true) ;
     t = ConstructTemplate();
-      setInConstructTemplate(false) ;
       getQuery().setQueryResultStar(false) ;
       getQuery().setConstructTemplate(t) ;
     label_4:
@@ -495,11 +499,20 @@ public class SPARQLParser extends SPARQLParserBase implements SPARQLParserConsta
       getQuery().setOffset(integerValue(t.image)) ;
   }
 
+// ---- SPARQL/Update
 // ---- General Graph Pattern 
   final public Element GroupGraphPattern() throws ParseException {
-                                Element el = null ;
-      ElementGroup elg = new ElementGroup() ;
-    jj_consume_token(LBRACE);
+                                Element el = null ; Token t ;
+    t = jj_consume_token(LBRACE);
+    el = GroupGraphPatternSub();
+    jj_consume_token(RBRACE);
+      {if (true) return el ;}
+    throw new Error("Missing return statement in function");
+  }
+
+  final public Element GroupGraphPatternSub() throws ParseException {
+                                   Element el = null ;
+        ElementGroup elg = new ElementGroup() ;
         startGroup(elg) ;
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
     case IRIref:
@@ -609,14 +622,15 @@ public class SPARQLParser extends SPARQLParserBase implements SPARQLParserConsta
       }
     }
         endGroup(elg) ;
-    jj_consume_token(RBRACE);
-      {if (true) return elg ;}
+        {if (true) return elg ;}
     throw new Error("Missing return statement in function");
   }
 
+// -- TriplesBlock
+// Two versions - for SPARQL and ARQ (with paths)
   final public Element TriplesBlock(ElementTriplesBlock acc) throws ParseException {
     if ( acc == null )
-      acc = new ElementTriplesBlock() ;
+        acc = new ElementTriplesBlock() ;
     TriplesSameSubject(acc);
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
     case DOT:
@@ -817,6 +831,7 @@ public class SPARQLParser extends SPARQLParserBase implements SPARQLParserConsta
 
 // -------- Construct patterns
   final public Template ConstructTemplate() throws ParseException {
+      setInConstructTemplate(true) ;
       TemplateGroup g = new TemplateGroup() ;
     jj_consume_token(LBRACE);
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
@@ -852,6 +867,7 @@ public class SPARQLParser extends SPARQLParserBase implements SPARQLParserConsta
       ;
     }
     jj_consume_token(RBRACE);
+      setInConstructTemplate(false) ;
       {if (true) return g ;}
     throw new Error("Missing return statement in function");
   }
@@ -901,6 +917,7 @@ public class SPARQLParser extends SPARQLParserBase implements SPARQLParserConsta
   }
 
 // -------- Triple lists with property and object lists
+// -------- Without paths: entry: TriplesSameSubject
   final public void TriplesSameSubject(TripleCollector acc) throws ParseException {
                                                  Node s ;
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
@@ -944,9 +961,9 @@ public class SPARQLParser extends SPARQLParserBase implements SPARQLParserConsta
   }
 
   final public void PropertyListNotEmpty(Node s, TripleCollector acc) throws ParseException {
-                                                           Node p ;
+      Node p = null ;
     p = Verb();
-    ObjectList(s, p, acc);
+    ObjectList(s, p, null, acc);
     label_12:
     while (true) {
       switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
@@ -966,7 +983,7 @@ public class SPARQLParser extends SPARQLParserBase implements SPARQLParserConsta
       case VAR2:
       case KW_A:
         p = Verb();
-        ObjectList(s, p, acc);
+        ObjectList(s, p, null, acc);
         break;
       default:
         jj_la1[42] = jj_gen;
@@ -991,9 +1008,9 @@ public class SPARQLParser extends SPARQLParserBase implements SPARQLParserConsta
     }
   }
 
-  final public void ObjectList(Node s, Node p, TripleCollector acc) throws ParseException {
-                                                        Node o ;
-    Object(s, p, acc);
+  final public void ObjectList(Node s, Node p, Path path, TripleCollector acc) throws ParseException {
+                                                                   Node o ;
+    Object(s, p, path, acc);
     label_13:
     while (true) {
       switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
@@ -1005,19 +1022,19 @@ public class SPARQLParser extends SPARQLParserBase implements SPARQLParserConsta
         break label_13;
       }
       jj_consume_token(COMMA);
-      Object(s, p, acc);
+      Object(s, p, path, acc);
     }
   }
 
-  final public void Object(Node s, Node p, TripleCollector acc) throws ParseException {
-                                                    Node o ;
+  final public void Object(Node s, Node p, Path path, TripleCollector acc) throws ParseException {
+                                                               Node o ;
       int mark = acc.mark() ;
     o = GraphNode(acc);
-    insert(acc, mark, s, p, o) ;
+    insert(acc, mark, s, p, path, o) ;
   }
 
   final public Node Verb() throws ParseException {
-               Node p ;
+                Node p ;
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
     case IRIref:
     case PNAME_NS:
@@ -1035,10 +1052,13 @@ public class SPARQLParser extends SPARQLParserBase implements SPARQLParserConsta
       jj_consume_token(-1);
       throw new ParseException();
     }
-      {if (true) return p ;}
+    {if (true) return p ;}
     throw new Error("Missing return statement in function");
   }
 
+// -------- BGPs with paths.
+// -------- Entry point: TriplesSameSubjectPath
+// -------- Paths
 // -------- Triple expansions
 
 // Anything that can stand in a node slot and which is

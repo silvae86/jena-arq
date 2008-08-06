@@ -7,10 +7,12 @@
 package com.hp.hpl.jena.sparql.engine;
 
 import com.hp.hpl.jena.graph.Graph;
-
+import com.hp.hpl.jena.query.ARQ;
+import com.hp.hpl.jena.query.Query;
 import com.hp.hpl.jena.sparql.ARQConstants;
 import com.hp.hpl.jena.sparql.algebra.AlgebraGenerator;
 import com.hp.hpl.jena.sparql.algebra.Op;
+import com.hp.hpl.jena.sparql.core.Closeable;
 import com.hp.hpl.jena.sparql.core.DataSourceGraphImpl;
 import com.hp.hpl.jena.sparql.core.DatasetGraph;
 import com.hp.hpl.jena.sparql.engine.binding.Binding;
@@ -19,13 +21,10 @@ import com.hp.hpl.jena.sparql.util.ALog;
 import com.hp.hpl.jena.sparql.util.Context;
 import com.hp.hpl.jena.sparql.util.NodeFactory;
 
-import com.hp.hpl.jena.query.ARQ;
-import com.hp.hpl.jena.query.Query;
-
-public abstract class QueryEngineBase implements OpExec
+public abstract class QueryEngineBase implements OpExec, Closeable
 {
     private DatasetGraph dataset = null ;
-    private Context context ;
+    protected Context context ;
     private Binding startBinding ;
     
     private Op queryOp = null ;
@@ -39,6 +38,10 @@ public abstract class QueryEngineBase implements OpExec
     {
         this(dataset, input, context) ;
         this.context.put(ARQConstants.sysCurrentQuery, query) ;
+        // Avoid if possible - enables custom functions to have side-effects.
+        // And propoperty functions to see graphs other than the active one.  
+        // this.context.put(ARQConstants.sysCurrentDataset, dataset) ;
+        
         // Build the Op.
         query.setResultVars() ;
         setOp(createOp(query, gen)) ;
@@ -62,7 +65,21 @@ public abstract class QueryEngineBase implements OpExec
             input = BindingRoot.create() ;
         }
         this.startBinding = input ;
+        
+        initContext(context) ;
+    }
+    
+    private static void initContext(Context context)
+    {
         context.set(ARQConstants.sysCurrentTime, NodeFactory.nowAsDateTime()) ;
+        
+//        context.set(ARQConstants.sysVarAllocNamed, new VarAlloc(ARQConstants.allocVarMarkerExec)) ;
+//        context.set(ARQConstants.sysVarAllocAnon,  new VarAlloc(ARQConstants.allocVarAnonMarkerExec)) ;
+        
+        // Add VarAlloc for variables and bNodes (this is not the parse name). 
+        // 
+        
+        // More added later e.g. query (if there is a query), algebra form (in setOp)
     }
     
     public Plan getPlan()
@@ -80,7 +97,8 @@ public abstract class QueryEngineBase implements OpExec
         if ( dataset != null )
             // Null means setting up but not executing a query.
             queryIterator = eval(op, dataset, startBinding, context) ;
-        return new PlanOp(getOp(), queryIterator) ;
+        // This could be an automagic iterator to catch close.
+        return new PlanOp(getOp(), this, queryIterator) ;
     }
     
     protected Op modifyOp(Op op)
@@ -102,6 +120,10 @@ public abstract class QueryEngineBase implements OpExec
     public QueryIterator eval(Op op, DatasetGraph dsg, Binding binding, Context context) ;
     
     public Op getOp() { return queryOp ; }
+    
+    public void close()
+    { }
+    
     protected void setOp(Op op)
     { 
         queryOp = op ;

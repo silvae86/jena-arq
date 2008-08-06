@@ -43,84 +43,103 @@ public interface ARQParserConstants {
   int OPTIONAL = 37;
   int UNION = 38;
   int SERVICE = 39;
-  int AS = 40;
-  int EXT = 41;
-  int GROUP = 42;
-  int HAVING = 43;
-  int AGG = 44;
-  int COUNT = 45;
-  int MIN = 46;
-  int MAX = 47;
-  int SUM = 48;
-  int AVG = 49;
-  int STDDEV = 50;
-  int FILTER = 51;
-  int BOUND = 52;
-  int STR = 53;
-  int DTYPE = 54;
-  int LANG = 55;
-  int LANGMATCHES = 56;
-  int IS_URI = 57;
-  int IS_IRI = 58;
-  int IS_BLANK = 59;
-  int IS_LITERAL = 60;
-  int REGEX = 61;
-  int SAME_TERM = 62;
-  int TRUE = 63;
-  int FALSE = 64;
-  int DIGITS = 65;
-  int INTEGER = 66;
-  int DECIMAL = 67;
-  int DOUBLE = 68;
-  int INTEGER_POSITIVE = 69;
-  int DECIMAL_POSITIVE = 70;
-  int DOUBLE_POSITIVE = 71;
-  int INTEGER_NEGATIVE = 72;
-  int DECIMAL_NEGATIVE = 73;
-  int DOUBLE_NEGATIVE = 74;
-  int EXPONENT = 75;
-  int QUOTE_3D = 76;
-  int QUOTE_3S = 77;
-  int ECHAR = 78;
-  int STRING_LITERAL1 = 79;
-  int STRING_LITERAL2 = 80;
-  int STRING_LITERAL_LONG1 = 81;
-  int STRING_LITERAL_LONG2 = 82;
-  int LPAREN = 83;
-  int RPAREN = 84;
-  int NIL = 85;
-  int LBRACE = 86;
-  int RBRACE = 87;
-  int LBRACKET = 88;
-  int RBRACKET = 89;
-  int ANON = 90;
-  int SEMICOLON = 91;
-  int COMMA = 92;
-  int DOT = 93;
-  int EQ = 94;
-  int NE = 95;
-  int GT = 96;
-  int LT = 97;
-  int LE = 98;
-  int GE = 99;
-  int BANG = 100;
-  int TILDE = 101;
-  int COLON = 102;
-  int SC_OR = 103;
-  int SC_AND = 104;
-  int PLUS = 105;
-  int MINUS = 106;
-  int STAR = 107;
-  int SLASH = 108;
-  int DATATYPE = 109;
-  int AT = 110;
-  int PN_CHARS_BASE = 111;
-  int PN_CHARS_U = 112;
-  int PN_CHARS = 113;
-  int PN_PREFIX = 114;
-  int PN_LOCAL = 115;
-  int VARNAME = 116;
-  int UNKNOWN = 117;
+  int EXISTS = 40;
+  int AS = 41;
+  int LET = 42;
+  int GROUP = 43;
+  int HAVING = 44;
+  int AGG = 45;
+  int COUNT = 46;
+  int MIN = 47;
+  int MAX = 48;
+  int SUM = 49;
+  int AVG = 50;
+  int STDDEV = 51;
+  int FILTER = 52;
+  int BOUND = 53;
+  int STR = 54;
+  int DTYPE = 55;
+  int LANG = 56;
+  int LANGMATCHES = 57;
+  int IS_URI = 58;
+  int IS_IRI = 59;
+  int IS_BLANK = 60;
+  int IS_LITERAL = 61;
+  int REGEX = 62;
+  int SAME_TERM = 63;
+  int TRUE = 64;
+  int FALSE = 65;
+  int MODIFY = 66;
+  int INSERT = 67;
+  int DELETE = 68;
+  int DATA = 69;
+  int ADD = 70;
+  int REMOVE = 71;
+  int LOAD = 72;
+  int CLEAR = 73;
+  int CREATE = 74;
+  int SILENT = 75;
+  int DROP = 76;
+  int INTO = 77;
+  int DIGITS = 78;
+  int INTEGER = 79;
+  int DECIMAL = 80;
+  int DOUBLE = 81;
+  int INTEGER_POSITIVE = 82;
+  int DECIMAL_POSITIVE = 83;
+  int DOUBLE_POSITIVE = 84;
+  int INTEGER_NEGATIVE = 85;
+  int DECIMAL_NEGATIVE = 86;
+  int DOUBLE_NEGATIVE = 87;
+  int EXPONENT = 88;
+  int QUOTE_3D = 89;
+  int QUOTE_3S = 90;
+  int ECHAR = 91;
+  int STRING_LITERAL1 = 92;
+  int STRING_LITERAL2 = 93;
+  int STRING_LITERAL_LONG1 = 94;
+  int STRING_LITERAL_LONG2 = 95;
+  int LPAREN = 96;
+  int RPAREN = 97;
+  int NIL = 98;
+  int LBRACE = 99;
+  int RBRACE = 100;
+  int LBRACKET = 101;
+  int RBRACKET = 102;
+  int ANON = 103;
+  int SEMICOLON = 104;
+  int COMMA = 105;
+  int DOT = 106;
+  int EQ = 107;
+  int NE = 108;
+  int GT = 109;
+  int LT = 110;
+  int LE = 111;
+  int GE = 112;
+  int BANG = 113;
+  int TILDE = 114;
+  int COLON = 115;
+  int SC_OR = 116;
+  int SC_AND = 117;
+  int PLUS = 118;
+  int MINUS = 119;
+  int STAR = 120;
+  int SLASH = 121;
+  int DATATYPE = 122;
+  int AT = 123;
+  int ASSIGN = 124;
+  int VBAR = 125;
+  int CARROT = 126;
+  int FPATH = 127;
+  int RPATH = 128;
+  int QMARK = 129;
+  int PN_CHARS_BASE = 130;
+  int PN_CHARS_U = 131;
+  int PN_CHARS = 132;
+  int PN_PREFIX = 133;
+  int PN_LOCAL = 134;
+  int VARNAME = 135;
+  int UNKNOWN = 136;
 
   int DEFAULT = 0;
 
@@ -165,8 +184,9 @@ public interface ARQParserConstants {
     "\"optional\"",
     "\"union\"",
     "\"service\"",
+    "\"exists\"",
     "\"as\"",
-    "\"ext\"",
+    "\"let\"",
     "\"group\"",
     "\"having\"",
     "\"agg\"",
@@ -190,6 +210,18 @@ public interface ARQParserConstants {
     "\"sameTerm\"",
     "\"true\"",
     "\"false\"",
+    "\"modify\"",
+    "\"insert\"",
+    "\"delete\"",
+    "\"data\"",
+    "\"add\"",
+    "\"remove\"",
+    "\"load\"",
+    "\"clear\"",
+    "\"create\"",
+    "\"silent\"",
+    "\"drop\"",
+    "\"into\"",
     "<DIGITS>",
     "<INTEGER>",
     "<DECIMAL>",
@@ -236,6 +268,12 @@ public interface ARQParserConstants {
     "\"/\"",
     "\"^^\"",
     "\"@\"",
+    "\":=\"",
+    "\"|\"",
+    "\"^\"",
+    "\"->\"",
+    "\"<-\"",
+    "\"?\"",
     "<PN_CHARS_BASE>",
     "<PN_CHARS_U>",
     "<PN_CHARS>",

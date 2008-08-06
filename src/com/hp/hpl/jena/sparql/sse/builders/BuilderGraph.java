@@ -8,6 +8,9 @@ package com.hp.hpl.jena.sparql.sse.builders;
 
 import java.util.Iterator;
 
+import com.hp.hpl.jena.rdf.model.Model;
+import com.hp.hpl.jena.rdf.model.ModelFactory;
+
 import com.hp.hpl.jena.graph.Factory;
 import com.hp.hpl.jena.graph.Graph;
 import com.hp.hpl.jena.graph.Node;
@@ -19,39 +22,58 @@ import com.hp.hpl.jena.sparql.core.Quad;
 import com.hp.hpl.jena.sparql.sse.Item;
 import com.hp.hpl.jena.sparql.sse.ItemList;
 import com.hp.hpl.jena.sparql.sse.Tags;
-import com.hp.hpl.jena.sparql.util.GraphUtils;
 import com.hp.hpl.jena.sparql.util.NodeUtils;
+import com.hp.hpl.jena.sparql.util.graph.GraphUtils;
 import com.hp.hpl.jena.util.FileManager;
 
 public class BuilderGraph
 {
-
     public static Graph buildGraph(Item item)
-    {
-        if (item.isNode() )
-            BuilderBase.broken(item, "Attempt to build graph from a plain node") ;
-
-        if (item.isSymbol() )
-            BuilderBase.broken(item, "Attempt to build graph from a bare symbol") ;
-
-        if ( item.isTagged(Tags.tagGraph) )
-            return buildGraph(item.getList()) ;
-        if ( item.isTagged(Tags.tagLoad) )
-            return loadGraph(item.getList()) ;
-        BuilderBase.broken(item, "Wanted ("+Tags.tagGraph+"...) or ("+Tags.tagLoad+"...)");
-        return null ;
+    { 
+        Graph graph = Factory.createDefaultGraph() ;
+        buildGraph(graph, item) ;
+        return graph ;
     }
     
-    public static Graph buildGraph(ItemList list)
-    {
-        BuilderBase.checkTag(list, Tags.tagGraph) ;
-        list = list.cdr();
+    public static Graph buildGraph(ItemList itemList)
+    { 
         Graph graph = Factory.createDefaultGraph() ;
+        buildGraph(graph, itemList) ;
+        return graph ;
+    }
+    
+    public static void buildGraph(Graph graph, Item item)
+    {
+        if (item.isNode() )
+            BuilderLib.broken(item, "Attempt to build graph from a plain node") ;
+
+        if (item.isSymbol() )
+            BuilderLib.broken(item, "Attempt to build graph from a bare symbol") ;
+
+        if ( item.isTagged(Tags.tagGraph) )
+        {
+            buildGraph(graph, item.getList()) ;
+            return ;
+        }
+        
+        if ( item.isTagged(Tags.tagLoad) )
+        {
+           loadGraph(graph, item.getList()) ;
+           return ;
+        }
+        
+        BuilderLib.broken(item, "Wanted ("+Tags.tagGraph+"...) or ("+Tags.tagLoad+"...)");
+    }
+    
+    public static Graph buildGraph(Graph graph, ItemList list)
+    {
+        BuilderLib.checkTag(list, Tags.tagGraph) ;
+        list = list.cdr();
         
         for ( Iterator iter = list.iterator() ; iter.hasNext() ; )
         {
             Item item = (Item)iter.next();
-            BuilderBase.checkList(item) ;
+            BuilderLib.checkList(item) ;
             Triple triple = buildTriple(item.getList()) ;
             graph.add(triple) ;
         }
@@ -70,10 +92,10 @@ public class BuilderGraph
     public static DatasetGraph buildDataset(Item item)
     {
         if (item.isNode() )
-            BuilderBase.broken(item, "Attempt to build dataset from a plain node") ;
+            BuilderLib.broken(item, "Attempt to build dataset from a plain node") ;
 
         if (item.isSymbol() )
-            BuilderBase.broken(item, "Attempt to build dataset from a bare symbol") ;
+            BuilderLib.broken(item, "Attempt to build dataset from a bare symbol") ;
 
         if ( item.isTagged(Tags.tagGraph) )
         {
@@ -83,13 +105,13 @@ public class BuilderGraph
         }
         
         if ( ! item.isTagged(Tags.tagDataset) )
-            BuilderBase.broken(item, "Wanted ("+Tags.tagDataset+"...)" );
+            BuilderLib.broken(item, "Wanted ("+Tags.tagDataset+"...)" );
         return buildDataset(item.getList()) ;
     }
     
     public static DatasetGraph buildDataset(ItemList list)
     {
-        BuilderBase.checkTag(list, Tags.tagDataset) ;
+        BuilderLib.checkTag(list, Tags.tagDataset) ;
         list = list.cdr();
         DataSourceGraphImpl ds = new DataSourceGraphImpl((Graph)null) ;
         
@@ -99,9 +121,9 @@ public class BuilderGraph
             if ( item.isTagged(Tags.tagDefault) )
             {
                 if ( ds.getDefaultGraph() != null )
-                    BuilderBase.broken(item, "Multiple default graphs") ;
+                    BuilderLib.broken(item, "Multiple default graphs") ;
                 // (default (graph ...))
-                BuilderBase.checkLength(2, item.getList(), "Expected (default (graph...))") ;
+                BuilderLib.checkLength(2, item.getList(), "Expected (default (graph...))") ;
                 Graph g = BuilderGraph.buildGraph(item.getList().get(1)) ;
                 ds.setDefaultGraph(g) ;
                 continue ;
@@ -109,13 +131,13 @@ public class BuilderGraph
             if ( item.isTagged(Tags.tagNamedGraph) )
             {
                 ItemList ngList = item.getList() ;
-                BuilderBase.checkLength(3, ngList, "Expected (namedgraph IRI (graph...))") ;
+                BuilderLib.checkLength(3, ngList, "Expected (namedgraph IRI (graph...))") ;
                 Node n = BuilderNode.buildNode(ngList.get(1)) ;
                 Graph g = BuilderGraph.buildGraph(item.getList().get(2)) ;
                 ds.addGraph(n, g) ;
                 continue ;
             }
-            BuilderBase.broken(item, "Not expected in dataset") ;
+            BuilderLib.broken(item, "Not expected in dataset") ;
         }
         if ( ds.getDefaultGraph() == null )
             ds.setDefaultGraph(GraphUtils.makeDefaultGraph()) ;
@@ -124,26 +146,27 @@ public class BuilderGraph
     }
     
     
-    private static Graph loadGraph(ItemList list)
+    private static void loadGraph(Graph graph, ItemList list)
     {
-        BuilderBase.checkLength(2, list, Tags.tagLoad ) ;
+        BuilderLib.checkLength(2, list, Tags.tagLoad ) ;
         Item item = list.get(1) ;
         if ( ! item.isNode() )
-            BuilderBase.broken(item, "Expected: ("+Tags.tagLoad+" 'filename')") ;
+            BuilderLib.broken(item, "Expected: ("+Tags.tagLoad+" 'filename')") ;
         String s = NodeUtils.stringLiteral(item.getNode()) ;
         if ( s == null )
-            BuilderBase.broken(item, "Expected: ("+Tags.tagLoad+" 'filename')") ;
-        return FileManager.get().loadModel(s).getGraph() ;
+            BuilderLib.broken(item, "Expected: ("+Tags.tagLoad+" 'filename')") ;
+        Model model = ModelFactory.createModelForGraph(graph) ;
+        FileManager.get().readModel(model, s) ;
     }
     
     public static Triple buildTriple(ItemList list)
     {
         if ( list.size() != 3 && list.size() != 4 )
-            BuilderBase.broken(list, "Not a triple", list) ;
+            BuilderLib.broken(list, "Not a triple", list) ;
         if ( list.size() == 4 )
         {
             if ( ! list.get(0).isSymbol(Tags.tagTriple) )
-                BuilderBase.broken(list, "Not a triple") ;
+                BuilderLib.broken(list, "Not a triple") ;
             list = list.cdr() ;
         }
         return _buildNode3(list) ;
@@ -151,7 +174,7 @@ public class BuilderGraph
 
     public static Triple buildNode3(ItemList list)
     {
-        BuilderBase.checkLength(3, list, null) ;
+        BuilderLib.checkLength(3, list, null) ;
         return _buildNode3(list) ;
     }
     
@@ -166,11 +189,11 @@ public class BuilderGraph
     public static Quad buildQuad(ItemList list)
     {
         if ( list.size() != 4 && list.size() != 5 )
-            BuilderBase.broken(list, "Not a quad") ;
+            BuilderLib.broken(list, "Not a quad") ;
         if ( list.size() == 5 )
         {
             if ( ! list.get(0).isSymbol(Tags.tagQuad) )
-                BuilderBase.broken(list, "Not a quad") ;
+                BuilderLib.broken(list, "Not a quad") ;
             list = list.cdr() ;
         }
         return _buildNode4(list) ;
@@ -178,7 +201,7 @@ public class BuilderGraph
     
     public static Quad buildNode4(ItemList list)
     {
-        BuilderBase.checkLength(4, list, null) ;
+        BuilderLib.checkLength(4, list, null) ;
         return _buildNode4(list) ;
     }
     

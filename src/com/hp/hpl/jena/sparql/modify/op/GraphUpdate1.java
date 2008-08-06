@@ -7,9 +7,7 @@
 package com.hp.hpl.jena.sparql.modify.op;
 
 
-import com.hp.hpl.jena.graph.Graph;
 import com.hp.hpl.jena.graph.Node;
-import com.hp.hpl.jena.update.GraphStore;
 
 /**
  * @author Andy Seaborne
@@ -25,19 +23,6 @@ public abstract class GraphUpdate1 extends Update
     public boolean hasGraphName() { return graphName != null ; }
     public void setGraphName(String iri) { graphName = Node.createURI(iri) ; }
     public Node getGraphName() { return graphName ; }
-    
-    protected abstract void exec(GraphStore graphStore, Graph graph) ;
-    
-    //@Override
-    public void exec(GraphStore graphStore)
-    {
-        Graph g = null ;
-        if ( hasGraphName() )
-            g = graphStore.getGraph(getGraphName()) ;
-        else
-            g = graphStore.getDefaultGraph() ;
-        exec(graphStore, g) ;
-    }
 }
 
 

@@ -246,6 +246,7 @@ public class Optimizer
 		BasicPatternVisitor visitor = new BasicPatternVisitor() ;
 		Element el = query.getQueryPattern() ;
 		Op op = Algebra.compile(el) ;
+		op = Algebra.optimize(op) ;
 		OpWalker.walk(op, visitor) ;
 		
 		if (model != null)

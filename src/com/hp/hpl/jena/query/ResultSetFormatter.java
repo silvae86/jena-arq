@@ -5,12 +5,16 @@
 
 package com.hp.hpl.jena.query;
 
+import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 import com.hp.hpl.jena.rdf.model.Model;
+import com.hp.hpl.jena.rdf.model.RDFNode;
 import com.hp.hpl.jena.rdf.model.Resource;
 import com.hp.hpl.jena.shared.PrefixMapping;
 import com.hp.hpl.jena.util.FileUtils;
@@ -120,6 +124,24 @@ public class ResultSetFormatter
         tFmt.format(out, answer) ;
     }
     
+    /** Return a string that has the result set serilized as a text table
+     * 
+     * @param qresults  result set
+     * @return  string
+     */
+    
+    public static String asText(ResultSet qresults)
+    {
+        ByteArrayOutputStream arr = new ByteArrayOutputStream() ;
+        out(arr, qresults) ;
+        try { return new String(arr.toByteArray(), "UTF-8") ; }
+        catch (UnsupportedEncodingException e)
+        {
+            ALog.warn(ResultSetFormatter.class, "UnsupportedEncodingException") ;
+            return null ;
+        }
+    }
+
     // ----------------------------------------------------------------
     // Do nothing formatting
     
@@ -132,8 +154,13 @@ public class ResultSetFormatter
         int count = 0 ;
         for ( ; resultSet.hasNext() ; )
         {
-            //QuerySolution result = 
-                resultSet.nextSolution() ;
+            // Force nodes to be materialized.
+            QuerySolution result = resultSet.nextSolution() ;
+            for ( Iterator iter = result.varNames() ; iter.hasNext() ; )
+            {
+                String vn = (String)iter.next();
+                RDFNode n = result.get(vn) ;
+            }
             count++ ;
         }
         return count ;

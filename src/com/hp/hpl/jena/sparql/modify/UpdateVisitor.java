@@ -16,6 +16,10 @@ public interface UpdateVisitor
 
     public void visit(UpdateInsert insert) ;
 
+    public void visit(UpdateInsertData add) ;
+
+    public void visit(UpdateDeleteData remove) ;
+    
     public void visit(UpdateClear clear) ;
 
     public void visit(UpdateLoad load) ;
@@ -23,6 +27,8 @@ public interface UpdateVisitor
     public void visit(UpdateDrop drop) ;
     
     public void visit(UpdateCreate create) ;
+
+    public void visit(UpdateExt updateExt) ;
 }
 
 /*

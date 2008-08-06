@@ -6,21 +6,29 @@
 
 package com.hp.hpl.jena.sparql.algebra;
 
+import java.util.List;
+
 import com.hp.hpl.jena.sparql.algebra.op.*;
 
-/** One step in the transformation process */
+/** One step in the transformation process.
+ *  Used with Transformer, performs a a bottom-up rewrite.
+ */
 public class TransformCopy implements Transform
 {
     public static final boolean COPY_ALWAYS         = true ;
     public static final boolean COPY_ONLY_ON_CHANGE = false ;
     private boolean alwaysCopy = false ;
     
-    public TransformCopy() { this(COPY_ONLY_ON_CHANGE) ; }
-    public TransformCopy(boolean alwaysDuplicate)   { this.alwaysCopy = alwaysDuplicate ; }
+    public TransformCopy()                                          { this(COPY_ONLY_ON_CHANGE) ; }
+    public TransformCopy(boolean alwaysDuplicate)                   { this.alwaysCopy = alwaysDuplicate ; }
 
     public Op transform(OpTable opTable)                            { return xform(opTable) ; }
     public Op transform(OpBGP opBGP)                                { return xform(opBGP) ; }
+    public Op transform(OpTriple opTriple)                          { return xform(opTriple) ; }
+    public Op transform(OpPath opPath)                              { return xform(opPath) ; }
+
     public Op transform(OpProcedure opProc, Op subOp)               { return xform(opProc, subOp) ; }
+    public Op transform(OpPropFunc opPropFunc, Op subOp)            { return xform(opPropFunc, subOp) ; }
     public Op transform(OpDatasetNames dsNames)                     { return xform(dsNames) ; }
     public Op transform(OpQuadPattern quadPattern)                  { return xform(quadPattern) ; }
 
@@ -29,7 +37,7 @@ public class TransformCopy implements Transform
     public Op transform(OpService opService, Op x)                  { return xform(opService, x) ; }
     
     public Op transform(OpJoin opJoin, Op left, Op right)           { return xform(opJoin, left, right) ; }
-    public Op transform(OpStage opStage, Op left, Op right)         { return xform(opStage, left, right) ; }
+    public Op transform(OpSequence opSequence, List elts)           { return xform(opSequence, elts) ; }
     public Op transform(OpLeftJoin opLeftJoin, Op left, Op right)   { return xform(opLeftJoin, left, right) ; }
     public Op transform(OpDiff opDiff, Op left, Op right)           { return xform(opDiff, left, right) ; }
     public Op transform(OpUnion opUnion, Op left, Op right)         { return xform(opUnion, left, right) ; }
@@ -37,6 +45,7 @@ public class TransformCopy implements Transform
     public Op transform(OpExt opExt)                                { return opExt.copy() ; }
     
     public Op transform(OpNull opNull)                              { return opNull.copy() ; }
+    public Op transform(OpLabel opLabel, Op subOp)                  { return xform(opLabel, subOp) ; }
     
     public Op transform(OpList opList, Op subOp)                    { return xform(opList, subOp) ; }
     public Op transform(OpOrder opOrder, Op subOp)                  { return xform(opOrder, subOp) ; }
@@ -67,7 +76,25 @@ public class TransformCopy implements Transform
             return op ;
         return op.copy(left, right) ;
     }
+    private Op xform(OpN op, List elts)
+    {
+        // Need to do one-deep equality checking.
+        if ( ! alwaysCopy && equals1(elts, op.getElements()) )
+            return op ;
+        return op.copy(elts) ;
+    }
     
+    private boolean equals1(List list1, List list2)
+    {
+        if ( list1.size() != list2.size() )
+            return false ;
+        for ( int i = 0 ; i < list1.size() ; i++ )
+        {
+            if ( list1.get(i) != list2.get(i) )
+                return false ;
+        }
+        return true ;
+    }
     private Op xform(OpModifier op, Op subOp)
     { 
         if ( ! alwaysCopy && op.getSubOp() == subOp )

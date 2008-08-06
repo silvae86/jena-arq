@@ -84,23 +84,78 @@ public class ARQConstants
     
     public static Symbol allocSymbol(String shortName)
     { 
-        if ( shortName.startsWith(ARQ.arqNS)) 
-            throw new ARQInternalErrorException("Symbol short name begins with the ARQ namespace name: "+shortName) ;
-        return Symbol.create(ARQ.arqNS+shortName) ;
+        if ( shortName.startsWith(ARQ.arqSymbolPrefix)) 
+            throw new ARQInternalErrorException("Symbol short name begins with the ARQ namespace prefix: "+shortName) ;
+        if ( shortName.startsWith("http:")) 
+            throw new ARQInternalErrorException("Symbol short name begins with http: "+shortName) ;
+        return allocSymbol(ARQ.arqNS, shortName) ;
     }
     
-    // If adding to the kinds of variable maker, then need to update tests in Var
+    public static Symbol allocSymbol(String base, String shortName)
+    {
+        return Symbol.create(base+shortName) ;
+    }
+
+    /* Variable names and allocated variables.
+     * NB Must agree with the variable parsing rules in SSE 
+     * Allocated variables use names that are not legal in SPARQL.
+     * Examples include the "?" variable initial character.
+     * 
+     * We need to allocate so clashes never occur within scopes.
+     * Distinguished (named variables) and non-distinguished (anon variables, bNodes) 
+     * 
+     * SSE also allows some convenience forms of exactly these string:
+     *  
+     * See: ParseHandlerPlain.emitVar
+     * 
+     * Naming:
+     *   Named (distinguished) allocated variables start "?."
+     *   Non-Distinguished, allocated variables start "??"
+     * 
+     * Scopes and usages:
+     *   Global:        
+     *      allocVarMarker          "?.."
+     *   VarAlloc.getVarAllocator 
+     *   
+     *   Query:     Expressions and aggregates 
+     *   Parser:    Used in turning blank nodes into variables in query patterns
+     *              Via LabelToNodeMap ("??")
+     *   Algebra Generator:
+     *              PathCompiler ("??P")    : Non-distinguished variables.
+     *   SSE 
+     *      "?"     short hand for "some variable" using ?0, ?1, ?2 naming (legal SPARQL names)
+     *      "??"    short hand for "some new anon variable"
+     *      "?."    short hand for "some new named variable"
+     *      
+     *  See also sysVarAllocNamed and sysVarAllocAnon for symbols to identify in a context. 
+     */
     
-    /** Marker for generated variables for non-distinguished in query patterns (??a etc)*/ 
-    public static final String anonVarMarker = "?" ;
+    /** Marker for generated variables for non-distinguished in query patterns (??a etc) */
+    public static final String allocVarAnonMarker = "?" ;
     
     /** Marker for general temporary variables (not blank node variables) */
     public static final String allocVarMarker = "." ;
-
-    // Use alloc vars
-//    /** Marker for generated variables for aggregates and unnamed expressions */ 
-//    public static final String aggVarMarker = "=" ;
     
+    // Secondary marker for globally allocated variables. 
+    private static final String globalVar =     "." ;
+    
+    // Spare primary marker.
+    //private static final String executionVar =  "@" ;
+    
+    // These strings are without the leading "?"
+
+    // Put each constant here and not in the place the variable allocator created.
+    // Alwats 0, 1, 2, 3 after these prefixes. 
+    
+    public static final String allocGlobalVarMarker     = allocVarMarker+globalVar ;    // VarAlloc
+    public static final String allocPathVariables       = allocVarAnonMarker+"P" ;      // PathCompiler
+    public static final String allocQueryVariables      = allocVarMarker ;              // Query
+    public static final String allocParserAnonVars      = allocVarAnonMarker ;          // LabelToModeMap
+    
+    // SSE
+    public static final String allocSSEUnamedVars       = "_" ;                         // ParseHandlerPlain - SSE token "?" - legal SPARQL
+    public static final String allocSSEAnonVars         = allocVarAnonMarker ;          // ParseHandlerPlain - SSE token "??"
+    public static final String allocSSENamedVars        = allocVarMarker ;              // ParseHandlerPlain - SSE token "?."
     
     /** Marker for system symbols */
     public static final String systemVarNS = "http://jena.hpl.hp.com/ARQ/system#" ;
@@ -109,7 +164,12 @@ public class ARQConstants
      * (may be null if was not created from a query string )
      * */
     public static final Symbol sysCurrentQuery  = Symbol.create(systemVarNS+"query") ;
-    
+
+    /** Context key for the dataset for the current query execution 
+     * May be null if was not created from a query string.
+     */
+    public static final Symbol sysCurrentDataset  = Symbol.create(systemVarNS+"dataset") ;
+
     /** Context key for the algebra expression of the query execution */
     public static final Symbol sysCurrentAlgebra  = Symbol.create(systemVarNS+"algebra") ;
 
@@ -122,6 +182,12 @@ public class ARQConstants
     /** Context key for Jena version */
     public static final Symbol sysVersionJena  = Symbol.create(systemVarNS+"version/Jena") ;
 
+    /** Context key for the execution-scoped named variable generator */
+    public static final Symbol sysVarAllocNamed  = Symbol.create(systemVarNS+"namedVarAlloc") ;
+    
+    /** Context key for the execution-scoped bNode variable generator */
+    public static final Symbol sysVarAllocAnon  = Symbol.create(systemVarNS+"namedVarAnon") ;
+    
     /** Context key for making all SELECT queries have DISTINCT applied, whether stated ot not */
     public static final Symbol autoDistinct = ARQConstants.allocSymbol("autoDistinct") ;
     

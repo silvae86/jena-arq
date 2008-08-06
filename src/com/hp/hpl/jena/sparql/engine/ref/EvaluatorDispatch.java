@@ -6,6 +6,7 @@
 
 package com.hp.hpl.jena.sparql.engine.ref;
 
+import java.util.Iterator;
 import java.util.Stack;
 
 import com.hp.hpl.jena.sparql.algebra.Op;
@@ -59,13 +60,28 @@ public class EvaluatorDispatch implements OpVisitor
         push(Eval.evalQuadPattern(quadPattern, evaluator)) ;
     }
 
+    public void visit(OpTriple opTriple)
+    {
+        visit(opTriple.asBGP()) ;
+    }
+
+    public void visit(OpPath opPath)
+    {
+        Table table = evaluator.pathPattern(opPath.getTriplePath()) ;
+        push(table) ;
+    }
+
     public void visit(OpProcedure opProc)
     {
         Table table = eval(opProc.getSubOp()) ;
-        if ( opProc.getArgs() != null )
-            table = evaluator.procedure(table, opProc.getProcId(), opProc.getArgs()) ;
-        else
-            table = evaluator.procedure(table, opProc.getProcId(), opProc.getSubjectArgs(), opProc.getObjectArgs()) ;
+        table = evaluator.procedure(table, opProc.getProcId(), opProc.getArgs()) ;
+        push(table) ;
+    }
+
+    public void visit(OpPropFunc opPropFunc)
+    {
+        Table table = eval(opPropFunc.getSubOp()) ;
+        table = evaluator.propertyFunction(table, opPropFunc.getProperty(), opPropFunc.getSubjectArgs(), opPropFunc.getObjectArgs()) ;
         push(table) ;
     }
 
@@ -77,12 +93,17 @@ public class EvaluatorDispatch implements OpVisitor
         push(table) ;
     }
     
-    public void visit(OpStage opStage)
+    public void visit(OpSequence opSequence)
     {
-        // Evaluate as a join (reference implementation).
-        Table left = eval(opStage.getLeft()) ;
-        Table right = eval(opStage.getRight()) ;
-        Table table = evaluator.join(left, right) ;
+        // Evaluation is as a sequence of joins.
+        Table table = TableFactory.createUnit() ;
+        
+        for ( Iterator iter = opSequence.iterator() ; iter.hasNext() ; )
+        {
+            Op op = (Op)iter.next() ;
+            Table eltTable = eval(op) ;
+            table = evaluator.join(table, eltTable) ;
+        }
         push(table) ;
     }
 
@@ -145,6 +166,15 @@ public class EvaluatorDispatch implements OpVisitor
     public void visit(OpNull opNull)
     { 
         push(TableFactory.createEmpty()) ;
+    }
+    
+    public void visit(OpLabel opLabel)
+    {
+        if ( opLabel.hasSubOp() )
+            push(eval(opLabel.getSubOp())) ;
+        else
+            // No subop.
+            push(TableFactory.createUnit()) ;
     }
 
     public void visit(OpList opList)

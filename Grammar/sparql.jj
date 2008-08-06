@@ -1,6 +1,7 @@
 // ARQ/SPARQL Grammar - native syntax for the query engine
+// NB An update can contain a nested SELECT
 // Author:  Andy Seaborne andy.seaborne@hp.com
-// (c) Copyright 2004, 2005, 2006, 2007 Hewlett-Packard Development Company, LP
+// (c) Copyright 2004, 2005, 2006, 2007, 2008 Hewlett-Packard Development Company, LP
 // All rights reserved.
 // See end of file for details.
 //
@@ -20,7 +21,7 @@ options
 
 PARSER_BEGIN(SPARQLParser)
 /*
- * (c) Copyright 2004, 2005, 2006, 2007 Hewlett-Packard Development Company, LP
+ * (c) Copyright 2004, 2005, 2006, 2007, 2008 Hewlett-Packard Development Company, LP
  * All rights reserved.
  */
 
@@ -31,17 +32,23 @@ import com.hp.hpl.jena.query.* ;
 import com.hp.hpl.jena.sparql.core.Var ;
 import com.hp.hpl.jena.sparql.syntax.* ;
 import com.hp.hpl.jena.sparql.expr.* ;
+import com.hp.hpl.jena.sparql.path.* ;
+
+
+
 
 
 
 
 public class SPARQLParser extends SPARQLParserBase
 {
+    private static long UNSET = P_Mod.UNSET ;
+    private static long INF = P_Mod.INF ;
     boolean allowAggregatesInExpressions = false ;
 }
 PARSER_END(SPARQLParser)
 
-void CompilationUnit(): { }
+void QueryUnit(): { }
 {
   Query() <EOF>
 }
@@ -61,7 +68,7 @@ void Prologue() : {}
 void BaseDecl() : { String iri ; }
 {
   <BASE> iri = IRI_REF()
-  { getQuery().setBaseURI(iri) ; }
+  { getPrologue().setBaseURI(iri) ; }
 }
 
 
@@ -69,7 +76,7 @@ void PrefixDecl() : { Token t ; String iri ; }
 {
     <PREFIX> t = <PNAME_NS> iri = IRI_REF()
       { String s = fixupPrefix(t.image, t.beginLine, t.beginColumn) ;
-        getQuery().setPrefix(s, iri) ; }
+        getPrologue().setPrefix(s, iri) ; }
 }
 
 // ---- Query type clauses
@@ -99,11 +106,9 @@ void SelectQuery() : { Var v ; Expr expr ; }
 void ConstructQuery() : { Template t ; }
 {
   <CONSTRUCT>
-    { getQuery().setQueryConstructType() ;
-      setInConstructTemplate(true) ; }
+    { getQuery().setQueryConstructType() ; }
   t = ConstructTemplate()
-    { setInConstructTemplate(false) ;
-      getQuery().setQueryResultStar(false) ;
+    { getQuery().setQueryResultStar(false) ;
       getQuery().setConstructTemplate(t) ; }
   ( DatasetClause() )*
   WhereClause()
@@ -230,12 +235,21 @@ void OffsetClause() : { Token t ; }
     { getQuery().setOffset(integerValue(t.image)) ; }
 }
 
+// ---- SPARQL/Update
 // ---- General Graph Pattern 
 
-Element GroupGraphPattern() : { Element el = null ; }
+Element GroupGraphPattern() : { Element el = null ; Token t ; }
 {
-    { ElementGroup elg = new ElementGroup() ; }
-  <LBRACE>
+  t = <LBRACE>
+    el = GroupGraphPatternSub()
+
+  <RBRACE>
+    { return el ; }
+}
+
+Element GroupGraphPatternSub() : { Element el = null ; }
+{
+      { ElementGroup elg = new ElementGroup() ; }
       { startGroup(elg) ; }
   // Ensure two BGP's can't be next to each other
   // Done by seeing if there is a non-BGP and recursing
@@ -259,20 +273,22 @@ Element GroupGraphPattern() : { Element el = null ; }
     )?
   )*
       { endGroup(elg) ; }
-  <RBRACE>
-    { return elg ; }
+      { return elg ; }
 }
+
+// -- TriplesBlock
+// Two versions - for SPARQL and ARQ (with paths)
+
 
 Element TriplesBlock(ElementTriplesBlock acc) : { }
 {
   { if ( acc == null )
-      acc = new ElementTriplesBlock() ;
+        acc = new ElementTriplesBlock() ;
   }
   TriplesSameSubject(acc)
   ( <DOT> (TriplesBlock(acc))? )?
     { return acc ; }
 }
-
 // -----
 
 Element GraphPatternNotTriples() : { Element el = null ; }
@@ -284,6 +300,8 @@ Element GraphPatternNotTriples() : { Element el = null ; }
    el = GroupOrUnionGraphPattern()
  |
    el = GraphGraphPattern()
+
+
 
 
 
@@ -363,20 +381,25 @@ ExprList ArgList() : { Expr expr ; ExprList args = new ExprList() ; }
 
 Template ConstructTemplate() : { }
 {
-    { TemplateGroup g = new TemplateGroup() ; }
+    { setInConstructTemplate(true) ;
+      TemplateGroup g = new TemplateGroup() ; }
   <LBRACE>
     (ConstructTriples(g))?
   <RBRACE>
-    { return g ; }
+    { setInConstructTemplate(false) ;
+      return g ; }
 }
 
 void ConstructTriples(TemplateGroup acc) : { }
 {
+    // Recursion :-(
+    // No paths here
     TriplesSameSubject(acc)
     (<DOT> (ConstructTriples(acc))? )?
 }
 
 // -------- Triple lists with property and object lists
+// -------- Without paths: entry: TriplesSameSubject
 
 void TriplesSameSubject(TripleCollector acc) : { Node s ; }
 {
@@ -388,15 +411,17 @@ void TriplesSameSubject(TripleCollector acc) : { Node s ; }
   PropertyList(s, acc)
 }
 
-void PropertyListNotEmpty(Node s, TripleCollector acc) : { Node p ; }
+void PropertyListNotEmpty(Node s, TripleCollector acc) :
+    { Node p = null ; }
 {
-  p = Verb()
-  ObjectList(s, p, acc)
-  (<SEMICOLON> (p = Verb() ObjectList(s, p, acc))? )*
-
-
-
-
+    p = Verb()
+    ObjectList(s, p, null, acc)
+  ( <SEMICOLON>
+    (
+       p = Verb()
+      ObjectList(s, p, null, acc)
+    )?
+  )*
 }
 
 void PropertyList(Node s, TripleCollector acc) : { }
@@ -404,26 +429,30 @@ void PropertyList(Node s, TripleCollector acc) : { }
   ( PropertyListNotEmpty(s, acc) ) ?
 }
 
-void ObjectList(Node s, Node p, TripleCollector acc): { Node o ; }
+void ObjectList(Node s, Node p, Path path, TripleCollector acc): { Node o ; }
 {
-  Object(s, p, acc)
-  ( <COMMA> Object(s, p, acc) )*
+  Object(s, p, path, acc)
+  ( <COMMA> Object(s, p, path, acc) )*
 }
 
-void Object(Node s, Node p, TripleCollector acc): { Node o ; }
+void Object(Node s, Node p, Path path, TripleCollector acc): { Node o ; }
 {
     { int mark = acc.mark() ; }
   o = GraphNode(acc)
-  { insert(acc, mark, s, p, o) ; }
+  { insert(acc, mark, s, p, path, o) ; }
 }
 
-Node Verb() : {Node p ;}
+Node Verb() : { Node p ;}
 {
+// Blank nodes as predicates
 //   ( p = VarOrBlankNodeOrIRIref() | <KW_A> { p = nRDFtype ; } )
   ( p = VarOrIRIref() | <KW_A> { p = nRDFtype ; } )
-    { return p ; }
+  { return p ; }
 }
 
+// -------- BGPs with paths.
+// -------- Entry point: TriplesSameSubjectPath
+// -------- Paths
 // -------- Triple expansions
 
 // Anything that can stand in a node slot and which is
@@ -877,11 +906,9 @@ TOKEN [IGNORE_CASE] :
 // Expression operators
 | < BOUND: "bound" >
 | < STR: "str" >
-// |  < URI:         "uri" >
 | < DTYPE: "datatype" >
 | < LANG: "lang" >
 | < LANGMATCHES: "langmatches" >
-//|  < IS_IRI:      ("isIRI"|"isURI") >
 | < IS_URI: "isURI" >
 | < IS_IRI: "isIRI" >
 | < IS_BLANK: "isBlank" >
@@ -892,7 +919,6 @@ TOKEN [IGNORE_CASE] :
 | <TRUE: "true" >
 | <FALSE: "false" >
 }
-
 // -------------------------------------------------
 
 TOKEN :
@@ -954,13 +980,7 @@ TOKEN :
 | < SEMICOLON: ";" >
 | < COMMA: "," >
 | < DOT: "." >
-}
-
-// Operator
-
-TOKEN :
-{
-  < EQ: "=" >
+| < EQ: "=" >
 | < NE: "!=" >
 | < GT: ">" >
 | < LT: "<" >
@@ -1028,7 +1048,7 @@ TOKEN:
 }
 
 /*
- * (c) Copyright 2004, 2005, 2006, 2007 Hewlett-Packard Development Company, LP
+ * (c) Copyright 2004, 2005, 2006, 2007, 2008 Hewlett-Packard Development Company, LP
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions

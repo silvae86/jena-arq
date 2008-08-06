@@ -6,29 +6,37 @@
 
 package com.hp.hpl.jena.sparql.algebra;
 
+import java.util.List;
+
 import com.hp.hpl.jena.sparql.algebra.op.*;
 
 public class TransformBase implements Transform
 {
-    public Op transform(OpTable opTable)            { return opTable ; }
-    public Op transform(OpBGP opBGP)                { return opBGP ; }
-    public Op transform(OpProcedure opProc, Op subOp)   { return opProc ; }
+    public Op transform(OpTable opTable)                    { return opTable ; }
+    public Op transform(OpBGP opBGP)                        { return opBGP ; }
+    public Op transform(OpTriple opTriple)                  { return opTriple ; }
+    public Op transform(OpPath opPath)                      { return opPath ; } 
 
-    public Op transform(OpDatasetNames dsNames)     { return dsNames ; }
-    public Op transform(OpQuadPattern quadPattern)  { return quadPattern ; }
+    public Op transform(OpProcedure opProc, Op subOp)       { return opProc ; }
+    public Op transform(OpPropFunc opPropFunc, Op subOp)    { return opPropFunc ; }
+
+    public Op transform(OpDatasetNames dsNames)             { return dsNames ; }
+    public Op transform(OpQuadPattern quadPattern)          { return quadPattern ; }
     
     public Op transform(OpFilter opFilter, Op subOp)        { return opFilter ; }
     public Op transform(OpGraph opGraph, Op subOp)          { return opGraph ; } 
     public Op transform(OpService opService, Op subOp)      { return opService ; } 
     
     public Op transform(OpJoin opJoin, Op left, Op right)           { return opJoin ; }
-    public Op transform(OpStage opStage, Op left, Op right)         { return opStage ; }
     public Op transform(OpLeftJoin opLeftJoin, Op left, Op right)   { return opLeftJoin ; }
     public Op transform(OpDiff opDiff, Op left, Op right)           { return opDiff ; }
     public Op transform(OpUnion opUnion, Op left, Op right)         { return opUnion ; }
     
+    public Op transform(OpSequence opSequence, List elts)         { return opSequence ; }
+
     public Op transform(OpExt opExt)                        { return opExt ; }
     public Op transform(OpNull opNull)                      { return opNull ; }
+    public Op transform(OpLabel opLabel, Op subOp)          { return opLabel ; }
     
     public Op transform(OpList opList, Op subOp)            { return opList ; }
     public Op transform(OpOrder opOrder, Op subOp)          { return opOrder ; }

@@ -7,18 +7,19 @@
 package com.hp.hpl.jena.sparql.algebra;
 
 import com.hp.hpl.jena.graph.Node;
-
+import com.hp.hpl.jena.sparql.algebra.op.OpBGP;
 import com.hp.hpl.jena.sparql.algebra.op.OpDatasetNames;
 import com.hp.hpl.jena.sparql.algebra.op.OpQuadPattern;
 import com.hp.hpl.jena.sparql.core.BasicPattern;
+import com.hp.hpl.jena.sparql.core.PathBlock;
 import com.hp.hpl.jena.sparql.core.Quad;
 import com.hp.hpl.jena.sparql.syntax.ElementGroup;
 import com.hp.hpl.jena.sparql.syntax.ElementNamedGraph;
+import com.hp.hpl.jena.sparql.util.ALog;
 import com.hp.hpl.jena.sparql.util.Context;
 
 public class AlgebraGeneratorQuad extends AlgebraGenerator 
 {
-    
     private Node currentGraph = Quad.defaultGraphNode ;
     
     public AlgebraGeneratorQuad(Context context) { super(context) ; }
@@ -26,9 +27,25 @@ public class AlgebraGeneratorQuad extends AlgebraGenerator
     
     protected Op compileBasicPattern(BasicPattern pattern)
     {
-        return new OpQuadPattern(currentGraph, pattern) ;
+        return convertToQuad(pattern) ;
+    }
+    
+    protected Op compilePathBlock(PathBlock pathBlock)
+    {
+        Op op = super.compilePathBlock(pathBlock) ;
+        if ( OpBGP.isBGP(op) )
+            return convertToQuad(((OpBGP)op).getPattern()) ;
+        ALog.warn(this, "Complex path seen - not implemented yet for quads yet") ;
+        return op ;
     }
 
+    private Op convertToQuad(BasicPattern pattern)
+    {
+        return new OpQuadPattern(currentGraph, pattern) ;
+    }
+    
+    //protected Op compilePathBlock(PathBlock pattern)
+    
     protected Op compileElementGraph(ElementNamedGraph eltGraph)
     {
         Node graphNode = eltGraph.getGraphNameNode() ;

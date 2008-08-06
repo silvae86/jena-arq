@@ -15,7 +15,7 @@ import com.hp.hpl.jena.sparql.serializer.SerializationContext;
 import com.hp.hpl.jena.sparql.util.IndentedWriter;
 
 /** A caching QueryIterator.  On demand, the application can ask for a new
- *  query iterator which will repeat the bindings yeilded so far.
+ *  query iterator which will repeat the bindings yielded so far.
  */  
 
 public 
@@ -45,8 +45,6 @@ class QueryIteratorCaching extends QueryIteratorWrapper
         List elements = cache ;
         if ( super.hasNext() )
             // If the iterator isn't finished, copy what we have so far.
-            // Not clear fro the javadoc if subList over the current slide is
-            // safe WRT additions outside the subList range.
             elements = new ArrayList(cache) ;
         
         return new QueryIteratorCaching(new QueryIterPlainWrapper(elements.iterator(), null)) ;

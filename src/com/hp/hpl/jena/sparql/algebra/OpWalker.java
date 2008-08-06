@@ -6,6 +6,8 @@
 
 package com.hp.hpl.jena.sparql.algebra;
 
+import java.util.Iterator;
+
 import com.hp.hpl.jena.sparql.algebra.op.*;
 
 
@@ -13,31 +15,43 @@ public class OpWalker
 {
     public static void walk(Op op, OpVisitor visitor)
     {
-        op.visit(new Walker(visitor)) ;
+        op.visit(new WalkerVisitor(visitor)) ;
     }
     
-    private static class Walker implements OpVisitor
+    public static class WalkerVisitor implements OpVisitor
     {
         private OpVisitor visitor ;
 
-        public Walker(OpVisitor visitor) { this.visitor = visitor ; }
+        // If using this as a superclass, remember to call super.visit.
+        public WalkerVisitor() { this(null) ; }
+        public WalkerVisitor(OpVisitor visitor) { this.visitor = visitor ; }
         
+        protected void visitN(OpN op)
+        {
+            for ( Iterator iter = op.iterator() ; iter.hasNext() ; )
+            {
+                Op sub = (Op)iter.next() ;
+                sub.visit(this) ;
+            }
+            if ( visitor != null ) op.visit(visitor) ;        
+        }
+
         protected void visit2(Op2 op)
         {
-            op.getLeft().visit(this) ;
-            op.getRight().visit(this) ;
-            op.visit(visitor) ;        
+            if ( op.getLeft() != null ) op.getLeft().visit(this) ;
+            if ( op.getRight() != null ) op.getRight().visit(this) ;
+            if ( visitor != null ) op.visit(visitor) ;        
         }
         
         protected void visit1(Op1 op)
         {
-            op.getSubOp().visit(this) ;
-            op.visit(visitor) ;        
+            if ( op.getSubOp() != null ) op.getSubOp().visit(this) ;
+            if ( visitor != null ) op.visit(visitor) ;        
         }
         
         protected void visit0(Op0 op)         
         {  
-            op.visit(visitor) ; 
+            if ( visitor != null ) op.visit(visitor) ; 
         }
         
         public void visit(OpBGP opBGP)
@@ -46,14 +60,23 @@ public class OpWalker
         public void visit(OpQuadPattern quadPattern)
         { visit0(quadPattern) ; }
 
+        public void visit(OpTriple opTriple)
+        { visit0(opTriple) ; }
+        
+        public void visit(OpPath opPath)
+        { visit0(opPath) ; }
+        
         public void visit(OpProcedure opProcedure)
         { visit1(opProcedure) ; }
+
+        public void visit(OpPropFunc opPropFunc)
+        { visit1(opPropFunc) ; }
 
         public void visit(OpJoin opJoin)
         { visit2(opJoin) ; }
 
-        public void visit(OpStage opStage)
-        { visit2(opStage) ; }
+        public void visit(OpSequence opSequence)
+        { visitN(opSequence) ; }
         
         public void visit(OpLeftJoin opLeftJoin)
         { visit2(opLeftJoin) ; }
@@ -84,6 +107,9 @@ public class OpWalker
 
         public void visit(OpNull opNull)
         { visit0(opNull) ; }
+
+        public void visit(OpLabel opLabel)
+        { visit1(opLabel) ; }
 
         public void visit(OpAssign opAssign)
         { visit1(opAssign) ; }

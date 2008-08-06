@@ -8,27 +8,41 @@ package com.hp.hpl.jena.update;
 
 import com.hp.hpl.jena.query.Dataset;
 import com.hp.hpl.jena.sparql.core.DataSourceGraph;
+import com.hp.hpl.jena.sparql.engine.binding.Binding;
 import com.hp.hpl.jena.sparql.modify.op.Update;
 
 /** A collection of graphs that an update can be applied to.
  *  The collection is one unnamed graph and zero or more named graphs, like
  *  a SPARQL dataset.   
  * @author Andy Seaborne
- * @version $Id$
  */
 public interface GraphStore extends DataSourceGraph
 {
-    /** Execute a request (a number of update operations) */
+    /** Execute a request (a number of update operations) 
+     * @deprecated Use {@link UpdateFactory#create} 
+     */
     public void execute(UpdateRequest request) ;
 
-    /** Execute an update (a single update operation) */
+    /** Execute an update (a single update operation) 
+     * @deprecated Use {@link UpdateFactory#create} 
+     */
     public void execute(Update graphUpdate) ;
     
+    /** Execute a request (a number of update operations) 
+     * @deprecated Use {@link UpdateFactory#create} 
+     */
+    public void execute(UpdateRequest request, Binding binding) ;
+
+    /** Execute an update (a single update operation) 
+     * @deprecated Use {@link UpdateFactory#create} 
+     */
+    public void execute(Update graphUpdate, Binding binding) ;
+
     public Dataset toDataset() ;
     
-    public void sync() ;
-
-    public void close() ;
+//    public void sync() ;
+//
+//    public void close() ;
 }
 
 /*

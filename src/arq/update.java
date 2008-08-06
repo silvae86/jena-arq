@@ -14,7 +14,6 @@ import arq.cmdline.ArgDecl;
 import arq.cmdline.CmdUpdate;
 
 import com.hp.hpl.jena.sparql.sse.SSE;
-import com.hp.hpl.jena.sparql.util.IndentedWriter;
 import com.hp.hpl.jena.sparql.util.Utils;
 
 import com.hp.hpl.jena.update.GraphStore;
@@ -23,6 +22,7 @@ import com.hp.hpl.jena.update.UpdateRequest;
 
 public class update extends CmdUpdate
 {
+    // --service / --remote
     ArgDecl updateArg = new ArgDecl(ArgDecl.HasValue, "--update") ;
     ArgDecl dumpArg = new ArgDecl(ArgDecl.NoValue, "--dump") ;       // Write the result to stdout.
     
@@ -69,25 +69,20 @@ public class update extends CmdUpdate
         }
         
         if ( dump )
-        {
-            IndentedWriter out = IndentedWriter.stdout ;
-            SSE.write(graphStore.toDataset()) ;
-            out.flush();
-        }
+            SSE.write(graphStore) ;
     }
 
 
     private void execOneFile(String filename, GraphStore store)
     {
         UpdateRequest req = UpdateFactory.read(filename) ;
-        store.execute(req) ;
+        UpdateFactory.create(req, store).execute() ;
     }
     
     private void execOne(String requestString, GraphStore store)
     {
         UpdateRequest req = UpdateFactory.create(requestString) ;
-        store.execute(req) ;
-        store.close() ;
+        UpdateFactory.create(req, store).execute() ;
     }
 }
 

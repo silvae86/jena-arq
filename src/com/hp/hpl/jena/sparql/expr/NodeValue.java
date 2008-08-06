@@ -819,7 +819,9 @@ public abstract class NodeValue extends ExprNode
         LiteralLabel lit = node.getLiteral() ;
         
         // This includes type testing
-        if ( ! lit.getDatatype().isValidLiteral(lit) )
+        //if ( ! lit.getDatatype().isValidLiteral(lit) )
+        // Use this - already calculated when the node is formed. 
+        if ( !node.getLiteral().isWellFormed() )
         {
             if ( NodeValue.VerboseWarnings )
             {
@@ -844,8 +846,10 @@ public abstract class NodeValue extends ExprNode
     {
         LiteralLabel lit = node.getLiteral() ;
         
+        // 50% of the time of this method is in  isValidLiteral and the lexcial form parsing.
+        
         try { // DatatypeFormatException - should not happen
-
+            
             if ( sameValueAsString && XSDDatatype.XSDstring.isValidLiteral(node.getLiteral()) ) 
                     // String - plain or xsd:string
                 return new NodeValueString(lit.getLexicalForm(), node) ;
@@ -854,7 +858,7 @@ public abstract class NodeValue extends ExprNode
             // Ditto literals with language tags (which are handled by nodeToNodeValue)
             
             // isValidLiteral is a value test - not a syntactic test.  
-            // This makes a diffeence in that "1"^^xsd:decimal" is a
+            // This makes a difference in that "1"^^xsd:decimal" is a
             // valid literal for xsd:integer (all other cases are subtypes of xsd:integer)
             // which we want to become integer anyway).
 

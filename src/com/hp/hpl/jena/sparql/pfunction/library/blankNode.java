@@ -13,7 +13,7 @@ import com.hp.hpl.jena.sparql.engine.QueryIterator;
 import com.hp.hpl.jena.sparql.engine.binding.Binding;
 import com.hp.hpl.jena.sparql.expr.ExprEvalException;
 import com.hp.hpl.jena.sparql.pfunction.PFuncSimple;
-import com.hp.hpl.jena.sparql.procedure.ProcLib;
+import com.hp.hpl.jena.sparql.util.IterLib;
 
 /** Relationship between a node (subject) and it's bNode label (object/string) */ 
 
@@ -24,16 +24,16 @@ public class blankNode extends PFuncSimple
         if ( Var.isVar(subject) )
             throw new ExprEvalException("bnode: subject is an unbound variable") ;
         if ( ! subject.isBlank() )
-            return ProcLib.noResults(execCxt) ;
+            return IterLib.noResults(execCxt) ;
         String str = subject.getBlankNodeLabel() ;
         Node obj = Node.createLiteral(str) ;
         if ( Var.isVar(object) )
-            return ProcLib.oneResult(binding, Var.alloc(object), obj, execCxt) ;
+            return IterLib.oneResult(binding, Var.alloc(object), obj, execCxt) ;
         
         // Subject and object are concrete 
         if ( object.sameValueAs(obj) )
-            return ProcLib.result(binding, execCxt) ;
-        return ProcLib.noResults(execCxt) ;
+            return IterLib.result(binding, execCxt) ;
+        return IterLib.noResults(execCxt) ;
     }
 }
 

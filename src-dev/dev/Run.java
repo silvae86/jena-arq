@@ -6,305 +6,259 @@
 
 package dev;
 
-import java.net.MalformedURLException;
+import java.util.Iterator;
 
 import arq.sparql;
 import arq.sse_query;
 
-import com.hp.hpl.jena.iri.IRI;
-import com.hp.hpl.jena.iri.IRIFactory;
-import com.hp.hpl.jena.iri.IRIRelativize;
 import com.hp.hpl.jena.rdf.model.Model;
 import com.hp.hpl.jena.rdf.model.ModelFactory;
+
 import com.hp.hpl.jena.util.FileManager;
 
-import com.hp.hpl.jena.sparql.algebra.*;
-import com.hp.hpl.jena.sparql.algebra.op.OpFilter;
-import com.hp.hpl.jena.sparql.engine.http.HttpQuery;
-import com.hp.hpl.jena.sparql.engine.http.QueryEngineHTTP;
-import com.hp.hpl.jena.sparql.util.DateTimeStruct;
+import com.hp.hpl.jena.graph.Node;
+import com.hp.hpl.jena.shared.PrefixMapping;
+import com.hp.hpl.jena.shared.impl.PrefixMappingImpl;
+
+import com.hp.hpl.jena.sparql.algebra.Algebra;
+import com.hp.hpl.jena.sparql.algebra.Op;
+import com.hp.hpl.jena.sparql.algebra.Transform;
+import com.hp.hpl.jena.sparql.algebra.Transformer;
+import com.hp.hpl.jena.sparql.algebra.op.OpPath;
+import com.hp.hpl.jena.sparql.algebra.opt.TransformFilterPlacement;
+import com.hp.hpl.jena.sparql.core.PathBlock;
+import com.hp.hpl.jena.sparql.core.Prologue;
+import com.hp.hpl.jena.sparql.core.TriplePath;
+import com.hp.hpl.jena.sparql.core.Var;
+import com.hp.hpl.jena.sparql.path.Path;
+import com.hp.hpl.jena.sparql.path.PathCompiler;
+import com.hp.hpl.jena.sparql.path.PathParser;
+import com.hp.hpl.jena.sparql.serializer.PrologueSerializer;
+import com.hp.hpl.jena.sparql.sse.SSE;
+import com.hp.hpl.jena.sparql.util.IndentedLineBuffer;
+import com.hp.hpl.jena.sparql.util.IndentedWriter;
+import com.hp.hpl.jena.sparql.util.StringUtils;
 
 import com.hp.hpl.jena.query.*;
-import com.hp.hpl.jena.query.larq.IndexBuilderString;
-import com.hp.hpl.jena.query.larq.IndexLARQ;
-import com.hp.hpl.jena.query.larq.LARQ;
+
+import com.hp.hpl.jena.update.*;
 
 public class Run
 {
     public static void main(String[] argv) throws Exception
     {
-        remote() ; System.exit(0) ;
+//        System.setProperty("socksProxyHost", "socks-server") ;
+//        
+//        String a2[] = { "--service=http://dbpedia.org/sparql",
+//                        "SELECT * WHERE {  <http://dbpedia.org/resource/Angela_Merkel> <http://dbpedia.org/property/reference> ?object.  FILTER  (!isLiteral(?object))}"} ;
+//        arq.remote.main(a2) ;
+//        System.exit(0) ;
+
+        runQTest() ;
+        runQParse() ;
+        // Compressed syntax
+        // match(Subject, Path, Object, PrefixMapping)
         
-        runUpdate() ;
-        arq.qexpr.main(new String[]{"64*1000*4e9/(3600*24*365*1000)"} );
+        if ( false )
+        {
+            Model m = ModelFactory.createDefaultModel() ;
+            m.setNsPrefix("", "http://example/") ;
+            Query query = QueryFactory.make() ;
+            query.setPrefixMapping(m) ;
+            QueryFactory.parse(query, "SELECT * { :s :p :o }", null, Syntax.syntaxSPARQL) ;
+            System.out.println(query) ;
+            System.exit(0) ;
+        }
+        
+        if ( false )
+        {
+            Model m = ModelFactory.createDefaultModel() ;
+            m.setNsPrefix("", "http://example/") ;
+            Prologue prologue = new Prologue(m) ;
+            IndentedLineBuffer b = new IndentedLineBuffer() ;
+            PrologueSerializer.output(b.getIndentedWriter(), prologue) ;
+            System.out.println(b.asString()) ;
+            
+//            query.setPrefixMapping(m) ;
+//            QueryFactory.parse(query, "SELECT * { :s :p :o }", null, Syntax.syntaxSPARQL) ;
+//            System.out.println(query) ;
+            System.exit(0) ;
+        }
+        
+        String qstr = StringUtils.join("\n", new String[]{
+                "PREFIX : <http://example/>\n",
+        		"SELECT ?g",
+        		"{ ?s ?p ?o ",
+        		"  GRAPH ?g {",
+        		"    GRAPH ?g2",
+        		//"    { ?sg :q/:p* ?og }",
+                "    { ?sg :q/:p ?og }",
+        		"   }",
+        		"}"
+        }) ;
+            
+        
+        Query query = QueryFactory.create(qstr, Syntax.syntaxARQ) ;
+        Op op = Algebra.compile(query) ;
+        Op op3 = Algebra.compileQuad(query) ;
+        
+        //Op op = SSE.parseOp("(join (BGP (?s ?p ?o)) (graph ?g (BGP (<sg> ?gp ?go)) ))") ;
+        
+        Op op2 = Quadization.quadize(op) ;
+        
+        System.out.println("---- Original") ;
+        System.out.println(op) ;
+        System.out.println("---- Quadization") ;
+        System.out.println(op2) ;
+        System.out.println("---- Old quad translation") ;
+        System.out.println(op3) ;
         System.exit(0) ;
         
-        Rewrite.main() ; System.exit(0) ;
+        
+        runQParse() ;
+        execQuery("D.ttl", "Q.arq") ;
+        
+        path() ; System.exit(0) ;
+        {
+            String []a = { "--engine=ref", "--file=Q.rq", "--print=op" } ;
+            arq.qparse.main(a) ;
+            System.exit(0) ;
+        }
+        {
+            String qs = StringUtils.join("\n",
+                                         new String[]
+                                                    {
+                "PREFIX dc: <http://purl.org/dc/elements/1.1/>",
+                "INSERT DATA INTO <http://example/bookStore>",
+                                                    "{ <http://example/book3>  dc:title  'Fundamentals of Compiler Design'}"}
+            ) ;
+            UpdateRequest request2 = UpdateFactory.create(qs);
+            request2.output(IndentedWriter.stdout);
+            IndentedWriter.stdout.flush();
+            System.exit(0) ;
+        }
+        
+        
+        UpdateRequest r = UpdateFactory.read("update.ru") ;
+        GraphStore gs = GraphStoreFactory.create() ;
+        System.out.println(r) ;
+        
+        UpdateAction.execute(r, gs) ;
+
+        SSE.write(gs) ;
+        System.exit(0) ;
+        
+        
+        //code() ; System.exit(0) ;
+        runUpdate() ; System.exit(0) ;
         
         //QueryEngineMain.register() ;
         String a[] = new String[]{
             //"-v",
             //"--engine=ref",
-            "-query=Q.rq" , 
+            "--data=D.ttl",
+            "-query=Q.rq" ,
         } ;
-        
+
         sparql.main(a) ;
         System.exit(0) ;
     }
     
-    static void remote()
+    private static void path()
     {
-        String url = "http://dbpedia.openlinksw.com:8890/sparql";
-        //String url = "http://localhost:2222/sparql";
-        String defaultgraph = "http://dbpedia.org";
-        String shortQuery = "SELECT ?predicate ?object " +
-        "WHERE { " +
-        "<http://dbpedia.org/resource/Philolaus> ?predicate ?object. "+
-        "FILTER( "+
-        "(!isLiteral(?object)) "+
-        "&&( !regex(str(?predicate), 'http://dbpedia.org/property/relatedInstance') ) "+
-        "&&( !regex(str(?predicate), 'http://dbpedia.org/property/wikiPageUsesTemplate') ) "+
-        "&&( !regex(str(?predicate), 'http://www.w3.org/2002/07/owl#sameAs') ) "+
-        "&&( !regex(str(?predicate), 'http://xmlns.com/foaf/0.1/') ) "+
-        "&&( !regex(str(?predicate), 'http://www.w3.org/2004/02/skos/core') ) "+
-        "&&( !regex(str(?object), 'http://xmlns.com/foaf/0.1/') ) "+
-        "&&( !regex(str(?object), 'http://upload.wikimedia.org/wikipedia') ) "+
-        "&&( !regex(str(?object), 'http://www4.wiwiss.fu-berlin.de/flickrwrappr') ) "+
-        "&&( !regex(str(?object), 'http://dbpedia.org/resource/Template') ) "+
-        "&&( !regex(str(?object), 'http://upload.wikimedia.org/wikipedia/commons') ) "+
-        "&&( !regex(str(?object), 'http://www.w3.org/2006/03/wn/wn20/instances/synset') ) "+
-        "&&( !regex(str(?object), 'http://dbpedia.org/resource/Category:') ) "+
-        "&&( !regex(str(?object), 'http://www.w3.org/2004/02/skos/core') ) "+
-        "&&( !regex(str(?object), 'http://www.geonames.org') )).} ";
-
-        String longQuery="SELECT ?predicate ?object " +
-        "WHERE { " +
-        "<http://dbpedia.org/resource/Philolaus> ?predicate ?object. "+
-        "FILTER( "+
-        "(!isLiteral(?object)) "+
-        "&&( !regex(str(?predicate), 'http://dbpedia.org/property/relatedInstance') ) "+
-        "&&( !regex(str(?predicate), 'http://dbpedia.org/property/wikiPageUsesTemplate') ) "+
-        "&&( !regex(str(?predicate), 'http://www.w3.org/2002/07/owl#sameAs') ) "+
-        "&&( !regex(str(?predicate), 'http://xmlns.com/foaf/0.1/') ) "+
-        "&&( !regex(str(?predicate), 'http://www.w3.org/2004/02/skos/core') ) "+
-        "&&( !regex(str(?object), 'http://xmlns.com/foaf/0.1/') ) "+
-        "&&( !regex(str(?object), 'http://upload.wikimedia.org/wikipedia') ) "+
-        "&&( !regex(str(?object), 'http://www4.wiwiss.fu-berlin.de/flickrwrappr') ) "+
-        "&&( !regex(str(?object), 'http://dbpedia.org/resource/Template') ) "+
-        "&&( !regex(str(?object), 'http://upload.wikimedia.org/wikipedia/commons') ) "+
-        "&&( !regex(str(?object), 'http://www.w3.org/2006/03/wn/wn20/instances/synset') ) "+
-        "&&( !regex(str(?object), 'http://www.w3.org/2006/03/wn/wn20/instances/synset') ) "+
-        "&&( !regex(str(?object), 'http://www.w3.org/2006/03/wn/wn20/instances/synset') ) "+
-        "&&( !regex(str(?object), 'http://www.w3.org/2006/03/wn/wn20/instances/synset') ) "+
-        "&&( !regex(str(?object), 'http://www.w3.org/2006/03/wn/wn20/instances/synset') ) "+
-        "&&( !regex(str(?object), 'http://www.w3.org/2006/03/wn/wn20/instances/synset') ) "+
-        "&&( !regex(str(?object), 'http://dbpedia.org/resource/Category:') ) "+
-        "&&( !regex(str(?object), 'http://www.w3.org/2004/02/skos/core') ) "+
-        "&&( !regex(str(?object), 'http://www.geonames.org') )).} ";
-
-
-        ResultSet rs;
-        String xml;
-        QueryEngineHTTP queryExecution;
-        
-        if ( false )
-        {
-            HttpQuery.urlLimit = 5 ;
-            queryExecution = new QueryEngineHTTP(url, shortQuery);
-            queryExecution.addDefaultGraph(defaultgraph);
-            rs = queryExecution.execSelect();
-            ResultSetFormatter.out(rs) ;
-//            xml = ResultSetFormatter.asXMLString(rs);
-//            System.out.println("Short Query ResultSet length: "+xml.length());
-            return ;
-        }
-        
-        if ( false )
-            try{
-                queryExecution=new QueryEngineHTTP(url,longQuery);
-                queryExecution.addDefaultGraph(defaultgraph);
-                rs = queryExecution.execSelect();
-                xml = ResultSetFormatter.asXMLString(rs);
-                System.out.println("Long Query ResultSet length: "+xml.length()+"\n");
-                System.out.println("Long query XML: "+xml);
-            }catch (Exception e) {e.printStackTrace();}
-
-        String queryWithIncreasingLength="";
-        
-        // 0 to 30: breaks at 15
-        for (int i = 14; i < 16; i++) {
-            queryWithIncreasingLength = makeQueryString ( i);
-            
-            if ( false )
-            {
-                Query q = QueryFactory.create(queryWithIncreasingLength) ;
-                System.out.println(q) ;
-            }
-            
-            queryExecution=new QueryEngineHTTP(url,queryWithIncreasingLength);
-            queryExecution.addDefaultGraph(defaultgraph);
-            rs = queryExecution.execSelect();
-            System.out.println("Query with length: "+queryWithIncreasingLength.length()
-                               +" produces ResultSet length: "+ResultSetFormatter.toList(rs).size());
-        }
-    }
-
-
-    public static String makeQueryString ( int charsToAdd){
-        String add="";
-
-        for (int i = 0; i <charsToAdd; i++) {
-            add+="0123456789"+"0123456789";
-        }
-        // NOTE THE LAST LINE
-        String query = "SELECT ?predicate ?object " +
-        "WHERE { " +
-        "<http://dbpedia.org/resource/Philolaus> ?predicate ?object. "+
-        "FILTER( "+
-        "(!isLiteral(?object)) "+
-        "&&( !regex(str(?predicate), 'http://dbpedia.org/property/relatedInstance') ) "+
-        "&&( !regex(str(?predicate), 'http://dbpedia.org/property/wikiPageUsesTemplate') ) "+
-        "&&( !regex(str(?predicate), 'http://www.w3.org/2002/07/owl#sameAs') ) "+
-        "&&( !regex(str(?predicate), 'http://xmlns.com/foaf/0.1/') ) "+
-        "&&( !regex(str(?predicate), 'http://www.w3.org/2004/02/skos/core') ) "+
-        "&&( !regex(str(?object), 'http://xmlns.com/foaf/0.1/') ) "+
-        "&&( !regex(str(?object), 'http://upload.wikimedia.org/wikipedia') ) "+
-        "&&( !regex(str(?object), 'http://www4.wiwiss.fu-berlin.de/flickrwrappr') ) "+
-        "&&( !regex(str(?object), 'http://dbpedia.org/resource/Template') ) "+
-        "&&( !regex(str(?object), 'http://upload.wikimedia.org/wikipedia/commons') ) "+
-        "&&( !regex(str(?object), 'http://www.w3.org/2006/03/wn/wn20/instances/synset') ) "+
-        "&&( !regex(str(?object), 'http://dbpedia.org/resource/Category:') ) "+
-        "&&( !regex(str(?object), 'http://www.w3.org/2004/02/skos/core') ) "+
-        "&&( !regex(str(?object), 'http://www.geonames.org"+add+"') )).} ";
-
-
-        return query;
-    }
-
-
-
-    static void Service() throws Exception
-    {
-        
-        //if ( true ) System.setProperty("socksProxyHost", "socks-server") ;
-        //java.net.PasswordAuthentication
-        
-//        QueryExecution qExec = QueryExecutionFactory.sparqlService("http://sparql.org/books", "SELECT * { ?s ?p ?o}") ;
-
-        QueryEngineHTTP qExec = QueryExecutionFactory.createServiceRequest("http://sparql.org/books",
-                                                         QueryFactory.create("SELECT * { ?s ?p ?o}")) ;
-        //qExec.addParam("default-graph-uri", "json") ;
-        //qExec.addDefaultGraph("foo") ;
-        qExec.setBasicAuthentication("user", "password".toCharArray()) ;
-        
-        ResultSetFormatter.out(qExec.execSelect()) ;
-        System.out.println("Finished") ;
-        System.exit(0) ;
-        
-        
-//        AlgebraGenerator.AlgebraStaging = true ;
-//        String []a = { "--file=Q.rq", "--print=op" , "--print=plan"} ;
-//        arq.qparse.main(a) ;
+//        String[] a = { "--print=op", "--file=Q.sse" } ;
+//        arq.sse_query.main(a) ;
 //        System.exit(0) ;
         
-        //socksProxyHost=socks-server
-        if ( false ) System.setProperty("socksProxyHost", "socks-server") ;
+        Model model = FileManager.get().loadModel("D.ttl") ;
+
+        PrefixMapping pmap = new PrefixMappingImpl() ;
+        pmap.setNsPrefixes(PrefixMapping.Standard) ;
+        pmap.setNsPrefix("", "http://example/") ;
+        
+        // | alt.
+        
         if ( false )
         {
-            Query query = QueryFactory.read("Q.rq") ;
-            Op op = Algebra.compile(query) ;
-            System.out.println(op) ;
-            Query query2 = OpAsQuery.asQuery(op) ;
-            System.out.println(query2) ;
-            System.exit(0) ;
+            path1(":p*/:q", pmap) ;
+            path1("^:p", pmap) ;
+            path1("^:p/:q", pmap) ;
+            path1("^(:p/:q)", pmap) ;
+            path1(":p*/:q", pmap) ;
+            path1(":p^:q", pmap) ;
         }
-
-        String DIR = "testing/ARQ/Algebra/" ;
-
-        //        ARQ.getContext().set(ARQ.filterPlacement, false) ;
-        execQuery(DIR+"opt-filter-1.ttl", DIR+"opt-filter-1.rq") ;
-       
-//        runQParse() ;
-//        execQuery(DIR+"D.ttl", DIR+"Q.arq") ;
-        execQuerySSE(DIR+"D.ttl", DIR+"Q.sse") ;
+        
+        if ( false )
+        {
+            Path path = PathParser.parse("rdf:type/rdfs:subClassOf*", pmap) ;
+            //path = new P_Link(RDF.type.asNode()) ;
+            
+            TriplePath triplePath = new TriplePath(Var.alloc("s"), path, Var.alloc("o")) ; 
+            OpPath opPath = new OpPath(triplePath) ;
+            System.out.println(opPath.toString(pmap)) ;
+            String x = opPath.toString(pmap) ;
+            Op op = SSE.parseOp(x, pmap) ;
+            System.out.println(op.toString(pmap)) ;
+        }
+        
+        System.exit(0) ;
     }
-    
-    private static void runParseDateTime(String str)
+
+    private static void path1(String str, PrefixMapping pmap)
     {
-        System.out.println(str) ; 
-        DateTimeStruct dt = DateTimeStruct.parseDateTime(str) ;
-        System.out.println(str + " ==> " + dt) ;
-        if ( ! str.equals(dt.toString())) 
-            System.out.println("*** Different") ;
+        Path path = PathParser.parse(str, pmap) ;
+        PathBlock pBlk = new PathBlock() ;
+        Node s = Node.createURI("s") ;
+        Node o = Node.createURI("o") ;
+        TriplePath tp = new TriplePath(s, path, o) ;
+        pBlk.add(tp) ;
+        
+        System.out.println("Path: "+str) ;
+        PathBlock x = new PathCompiler().reduce(pBlk) ;
+        for ( Iterator iter = x.iterator() ; iter.hasNext() ; )
+            System.out.println("  "+iter.next()) ;
+        System.out.println() ;
     }
     
     public static void code()
     {
-        // see Rewrite.java
-        Query q = QueryFactory.create("SELECT * { ?s ?p ?o FILTER(?o = 3) }") ;
-        Op op = Algebra.compile(q) ;
-        op = Algebra.optimize(op) ;
-        OpWalker.walk(op, new F()) ;
+        Transform t = new TransformFilterPlacement() ;
+        
+        Op op = SSE.readOp("Q.sse") ;
+        System.out.println(op) ;
+        op = Transformer.transform(new TransformFilterPlacement(), op) ;
+        System.out.println(op) ;
+        System.exit(0) ;
         
     }
-
-    static class F extends OpVisitorBase
-    {
-        public void visit(OpFilter opFilter)
-        {
-            //WriteropFilter.getExprs()
-        }
-    }
-    
-    
-    private static void code1(String uri, String base)
-    {
-        int relFlags = IRIRelativize.SAMEDOCUMENT | IRIRelativize.CHILD ;
-        IRI baseIRI = IRIFactory.jenaImplementation().construct(base) ;
-        IRI rel = baseIRI.relativize(uri, relFlags) ;
-        
-        String s = null ; 
-        try { s = rel.toASCIIString() ; }
-        catch (MalformedURLException  ex) { s = rel.toString() ; }
-            
-        System.out.println("("+uri+" ["+base+"]) ==> <"+s+">") ;
-        
-        String s2 = baseIRI.create(s).toString() ;
-        System.out.println("     "+s2) ;
-        
-    }
-
     private static void runQParse()
     {
-        String []a = { "--file=Q.rq", "--print=op" } ;
+        // "--engine=quad" "--opt"
+        String []a = { "--file=Q.rq", "--print=op" , "--opt" } ; //, "--print=plan"} ;
         arq.qparse.main(a) ;
         System.exit(0) ;
     }
     
     private static void runQParseARQ()
     {
-        String []a = { "--file=Q.arq", "--out=arq", "--print=op", "--print=query" } ;
+        String []a = { "--file=Q.arq", "--print=quad" } ; //, "--opt", "--print=plan"} ;
         arq.qparse.main(a) ;
         System.exit(0) ;
     }
     
     private static void runUpdate()
     {
-        String a[] = {"--desc=etc/graphstore.ttl", "--update=update.ru", "--dump"} ;
+        String a[] = {/*"--desc=etc/graphstore.ttl",*/ "--update=update.ru", "--dump"} ;
         arq.update.main(a) ;
         System.exit(0) ;
     }
     
     private static void runQTest()
     {
-        String DIR = "/home/afs/W3C/DataAccess/tests/data-r2/expr-equals/" ;
-        String []a1 = { "--strict", "--data="+DIR+"data-eq.ttl",
-            "--query="+DIR+"query-eq2-2.rq",
-            "--result="+DIR+"result-eq2-2.ttl"} ;
-
-        String []a2 = { "--strict", "--data="+DIR+"data-eq.ttl",
-            "--query="+DIR+"query-eq2-graph-1.rq",
-            "--result="+DIR+"result-eq2-graph-1.ttl"} ;
+        String DIR = "testing/ARQ/Assign/" ;
+        String []a1 = { "--strict", "--data="+DIR+"data.ttl",
+            "--query="+DIR+"assign-04.arq",
+            "--result="+DIR+"assign-04.ttl"} ;
 
         arq.qtest.main(a1) ;
         System.exit(0 ) ; 
@@ -316,14 +270,34 @@ public class Run
         //QueryEngineMain.register() ;
         String a[] = new String[]{
             //"-v",
-            //"--engine=ref",
+            //"--engine=ref", 
             "--data="+datafile,
             "-query="+queryfile , 
         } ;
         
         sparql.main(a) ;
         System.exit(0) ;
+    }
+
+    private static void execQuery2(String datafile, String queryfile)
+    {
+        //QueryEngineMain.register() ;
+        String a[] = new String[]{
+            //"-v",
+            "--data="+datafile,
+            "-query="+queryfile , 
+        } ;
         
+        sparql.main(a) ;
+        a = new String[]{
+            //"-v",
+            "--engine=ref", 
+            "--data="+datafile,
+            "-query="+queryfile , 
+        } ;
+        sparql.main(a) ;
+        
+        System.exit(0) ;
     }
     
     private static void execQuerySSE(String datafile, String queryfile)
@@ -341,89 +315,20 @@ public class Run
         
     }
     
-}
-
-class RunLARQ
-{
-    private static void codeLARQ()
+    private static void execQueryCode(String datafile, String queryfile)
     {
-        Model model = ModelFactory.createDefaultModel() ;
-        IndexLARQ index = buildIndex(model, "D.ttl") ;
-        LARQ.setDefaultIndex(index) ;
+        Model model = FileManager.get().loadModel(datafile) ;
+        Query query = QueryFactory.read(queryfile) ;
         
-        Query query = QueryFactory.read("Q.rq") ;
-        query.serialize(System.out) ;
-        System.out.println();
-                                          
-        QueryExecution qExec = QueryExecutionFactory.create(query, model) ;
-        //LARQ.setDefaultIndex(qExec.getContext(), index) ;
-        ResultSetFormatter.out(System.out, qExec.execSelect(), query) ;
-        qExec.close() ;
+        QuerySolutionMap initialBinding = new QuerySolutionMap();
+        initialBinding.add("s", model.createResource("http://example.org/x2")) ;
+        initialBinding.add("o", model.createResource("http://example.org/z")) ;
+        
+        QueryExecution qExec = QueryExecutionFactory.create(query, model, initialBinding) ;
+        ResultSetFormatter.out(qExec.execSelect()) ;
+        System.exit(0) ;
     }
-
-    static IndexLARQ buildIndex(Model model, String datafile)
-    {
-        // ---- Read and index all literal strings.
-        IndexBuilderString larqBuilder = new IndexBuilderString() ;
-        
-        // Index statements as they are added to the model.
-        model.register(larqBuilder) ;
-        
-        // To just build the index, create a model that does not store statements 
-        // Model model2 = ModelFactory.createModelForGraph(new GraphSink()) ;
-        
-        FileManager.get().readModel(model, datafile) ;
-        
-        // ---- Alternatively build the index after the model has been created. 
-        // larqBuilder.indexStatements(model.listStatements()) ;
-        
-        // ---- Finish indexing
-        larqBuilder.closeWriter() ;
-        model.unregister(larqBuilder) ;
-        
-        // ---- Create the access index  
-        IndexLARQ index = larqBuilder.getIndex() ;
-        return index ; 
-    }
-
-    static void performQuery(Model model, IndexLARQ index, String queryString)
-    {  
-        // Make globally available
-        LARQ.setDefaultIndex(index) ;
-        
-        Query query = QueryFactory.create(queryString) ;
-        query.serialize(System.out) ;
-        System.out.println();
-                                          
-        QueryExecution qExec = QueryExecutionFactory.create(query, model) ;
-        //LARQ.setDefaultIndex(qExec.getContext(), index) ;
-        ResultSetFormatter.out(System.out, qExec.execSelect(), query) ;
-        qExec.close() ;
-    }
-
-    
-//    private static Model makeModel()
-//    {
-//        String BASE = "http://example/" ;
-//        Model model = ModelFactory.createDefaultModel() ;
-//        model.setNsPrefix("", BASE) ;
-//        Resource r1 = model.createResource(BASE+"r1") ;
-//        Resource r2 = model.createResource(BASE+"r2") ;
-//        Property p1 = model.createProperty(BASE+"p") ;
-//        Property p2 = model.createProperty(BASE+"p2") ;
-//        RDFNode v1 = model.createTypedLiteral("1", XSDDatatype.XSDinteger) ;
-//        RDFNode v2 = model.createTypedLiteral("2", XSDDatatype.XSDinteger) ;
-//        
-//        r1.addProperty(p1, v1).addProperty(p1, v2) ;
-//        r1.addProperty(p2, v1).addProperty(p2, v2) ;
-//        r2.addProperty(p1, v1).addProperty(p1, v2) ;
-//        
-//        return model  ;
-//    }
-//    
 }
-
-
 
 /*
  * (c) Copyright 2007, 2008 Hewlett-Packard Development Company, LP

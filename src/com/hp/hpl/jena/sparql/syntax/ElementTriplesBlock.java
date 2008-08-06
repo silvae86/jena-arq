@@ -10,7 +10,9 @@ import java.util.Iterator;
 
 import com.hp.hpl.jena.graph.Triple;
 
+import com.hp.hpl.jena.sparql.ARQException;
 import com.hp.hpl.jena.sparql.core.BasicPattern;
+import com.hp.hpl.jena.sparql.core.TriplePath;
 import com.hp.hpl.jena.sparql.util.NodeIsomorphismMap;
 
 /** A SPARQL BasicGraphPattern
@@ -35,8 +37,14 @@ public class ElementTriplesBlock extends Element implements TripleCollector
     public void addTriple(int index, Triple t)
     { pattern.add(index, t) ; }
     
-    public BasicPattern getTriples() { return pattern ; }
-    public Iterator triples() { return pattern.iterator(); }
+    public void addTriplePath(TriplePath path)
+    { throw new ARQException("Triples-only collector") ; }
+
+    public void addTriplePath(int index, TriplePath path)
+    { throw new ARQException("Triples-only collector") ; }
+    
+    public BasicPattern getPattern() { return pattern ; }
+    public Iterator patternElts() { return pattern.iterator(); }
     
     //@Override
     public int hashCode()
@@ -49,19 +57,15 @@ public class ElementTriplesBlock extends Element implements TripleCollector
     //@Override
     public boolean equalTo(Element el2, NodeIsomorphismMap isoMap)
     {
-        if ( el2 == null ) return false ;
-
         if ( ! ( el2 instanceof ElementTriplesBlock) )
             return false ;
-        
         ElementTriplesBlock eg2 = (ElementTriplesBlock)el2 ;
-        
         return this.pattern.equiv(eg2.pattern, isoMap) ; 
     }
 
     public void visit(ElementVisitor v) { v.visit(this) ; }
-    
-    // Code to test triples for sameness with remapping. 
+
+ 
 }
 
 /*

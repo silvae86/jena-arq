@@ -133,9 +133,9 @@ public class Serializer
         SerializationContext cxt2 = new SerializationContext(query, new NodeToLabelMapBNode("c", false)  ) ;
         
         serializeARQ(query, writer, 
-                     new FormatterARQ(writer, cxt1),
-                     new FmtExprARQ(writer, cxt1),
-                     new FmtTemplateARQ(writer, cxt2)) ;
+                     new FormatterElement(writer, cxt1),
+                     new FmtExpr(writer, cxt1),
+                     new FmtTemplate(writer, cxt2)) ;
     }
     
     static private void serializeARQ(Query query, 

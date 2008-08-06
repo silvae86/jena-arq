@@ -87,14 +87,23 @@ public class OpAsQuery
 //            currentGroup().addElement(process(opBGP.getPattern())) ;
 //        }
         
+        public void visit(OpTriple opTriple)
+        { currentGroup().addElement(process(opTriple.getTriple())) ; }
+
         public void visit(OpProcedure opProcedure)
         {
             throw new ARQNotImplemented("OpProcedure") ;
         }
         
-        public void visit(OpStage opStage)
+        public void visit(OpPropFunc opPropFunc)
         {
-            throw new ARQNotImplemented("OpStage") ;
+            throw new ARQNotImplemented("OpPropFunc") ;
+        }
+        
+        
+        public void visit(OpSequence opSequence)
+        {
+            throw new ARQNotImplemented("OpSequence") ;
         }
         
         private ElementTriplesBlock process(BasicPattern pattern)
@@ -105,14 +114,25 @@ public class OpAsQuery
             {
                 Triple t = (Triple)iter.next() ;
                 // Leave bNode variables as they are
-                // Queruy serialization will deal with them. 
+                // Query serialization will deal with them. 
                 e.addTriple(t) ;
             }
             return e ;
         }
         
+        private ElementTriplesBlock process(Triple triple)
+        {
+            // Unsubtle
+            ElementTriplesBlock e = new ElementTriplesBlock() ;
+            e.addTriple(triple) ;
+            return e ;
+        }
+        
         public void visit(OpQuadPattern quadPattern)
         { throw new ARQNotImplemented("OpQuadPattern") ; }
+
+        public void visit(OpPath opPath)
+        { throw new ARQNotImplemented("OpPath") ; }
 
         public void visit(OpJoin opJoin)
         {
@@ -205,6 +225,9 @@ public class OpAsQuery
 
         public void visit(OpNull opNull)
         { throw new ARQNotImplemented("OpNull") ; }
+
+        public void visit(OpLabel opLabel)
+        { throw new ARQNotImplemented("OpLabel") ; }
 
         public void visit(OpAssign opAssign)
         { throw new ARQNotImplemented("OpAssign") ; }

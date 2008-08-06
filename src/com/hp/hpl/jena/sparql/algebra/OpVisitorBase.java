@@ -18,13 +18,22 @@ public class OpVisitorBase implements OpVisitor
     public void visit(OpQuadPattern quadPattern)
     {}
     
+    public void visit(OpTriple opTriple)
+    {}
+
+    public void visit(OpPath opPath)
+    {}
+
     public void visit(OpProcedure opProc)
+    {}
+    
+    public void visit(OpPropFunc opPropFunc)
     {}
     
     public void visit(OpJoin opJoin)
     {}
 
-    public void visit(OpStage opStage)
+    public void visit(OpSequence opSequence)
     {}
 
     public void visit(OpLeftJoin opLeftJoin)
@@ -55,6 +64,9 @@ public class OpVisitorBase implements OpVisitor
     {}
 
     public void visit(OpNull opNull)
+    {}
+
+    public void visit(OpLabel opLabel)
     {}
 
     public void visit(OpAssign opAssign)

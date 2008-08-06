@@ -12,6 +12,7 @@ import com.hp.hpl.jena.sparql.algebra.Op;
 import com.hp.hpl.jena.sparql.algebra.OpVisitor;
 import com.hp.hpl.jena.sparql.algebra.Transform;
 import com.hp.hpl.jena.sparql.core.VarExprList;
+import com.hp.hpl.jena.sparql.sse.Tags;
 import com.hp.hpl.jena.sparql.util.NodeIsomorphismMap;
 import com.hp.hpl.jena.sparql.util.Utils;
 
@@ -27,8 +28,8 @@ public class OpGroupAgg extends OpModifier
         this.aggregators = aggregators ;
     }
     
-    public String getName()                 { return "group" ; }
-    public VarExprList getGroupVars()     { return groupVars ; }
+    public String getName()                 { return Tags.tagGroupBy ; }
+    public VarExprList getGroupVars()       { return groupVars ; }
     public List getAggregators()            { return aggregators ; }
 
     public void visit(OpVisitor opVisitor)  { opVisitor.visit(this) ; }
@@ -51,9 +52,9 @@ public class OpGroupAgg extends OpModifier
     {
         if ( ! (other instanceof OpGroupAgg) ) return false ;
         OpGroupAgg opGroup = (OpGroupAgg)other ;
-        if ( ! Utils.eq(groupVars, opGroup.groupVars) ) 
+        if ( ! Utils.equals(groupVars, opGroup.groupVars) ) 
             return false ;
-        if ( ! Utils.eq(aggregators, opGroup.aggregators) )
+        if ( ! Utils.equals(aggregators, opGroup.aggregators) )
             return false ;
             
         return getSubOp().equalTo(opGroup.getSubOp(), labelMap) ;

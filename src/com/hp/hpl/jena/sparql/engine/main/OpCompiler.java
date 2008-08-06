@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
+import com.hp.hpl.jena.query.QueryExecException;
 import com.hp.hpl.jena.sparql.ARQNotImplemented;
 import com.hp.hpl.jena.sparql.algebra.Op;
 import com.hp.hpl.jena.sparql.algebra.Table;
@@ -18,7 +19,12 @@ import com.hp.hpl.jena.sparql.core.BasicPattern;
 import com.hp.hpl.jena.sparql.engine.ExecutionContext;
 import com.hp.hpl.jena.sparql.engine.QueryIterator;
 import com.hp.hpl.jena.sparql.engine.iterator.*;
-import com.hp.hpl.jena.sparql.engine.main.iterator.*;
+import com.hp.hpl.jena.sparql.engine.main.iterator.QueryIterGraph;
+import com.hp.hpl.jena.sparql.engine.main.iterator.QueryIterJoin;
+import com.hp.hpl.jena.sparql.engine.main.iterator.QueryIterLeftJoin;
+import com.hp.hpl.jena.sparql.engine.main.iterator.QueryIterOptionalIndex;
+import com.hp.hpl.jena.sparql.engine.main.iterator.QueryIterService;
+import com.hp.hpl.jena.sparql.engine.main.iterator.QueryIterUnion;
 import com.hp.hpl.jena.sparql.expr.Expr;
 import com.hp.hpl.jena.sparql.expr.ExprBuild;
 import com.hp.hpl.jena.sparql.expr.ExprList;
@@ -26,41 +32,52 @@ import com.hp.hpl.jena.sparql.expr.ExprWalker;
 import com.hp.hpl.jena.sparql.procedure.ProcEval;
 import com.hp.hpl.jena.sparql.procedure.Procedure;
 
-import com.hp.hpl.jena.query.QueryExecException;
-
+/** Turn an Op expression into an execution of QueryIterators.
+ *  Does not consider optimizing the algebra expression (that should happen elsewhere).
+ *  BGPs are stil subject to StageBuilding during iterator execution.  
+ * 
+ * @author Andy Seaborne
+ */
 
 public class OpCompiler
 {
-    // And filter placement in LeftJoins?
-    // Is this part of a more general algorithm of pushing the filter down
-    // when the vars are known to be fixed?
+    // A small (one slot) registry to allow (experimental) alternative  OpCompilers
+    public interface Factory { OpCompiler create(ExecutionContext execCxt) ; }
     
-    // TODO property function detemination by general tree rewriting - BGP special first.
-    //  By general BGP rewriting.  Stages.
-    //  (General tree rewrite is "Op => Op")
-    //   OpExtBase requires eval() but need better extensibility?
+    // Set this to a different factory implementation to have a different OpCompiler.  
+    public static Factory factory = new Factory(){
+
+        public OpCompiler create(ExecutionContext execCxt)
+        {
+            return new OpCompiler(execCxt) ;
+        }} ;  
     
-    public static QueryIterator compile(Op op, ExecutionContext execCxt)
+    // -------
+    // Call via QC.compile
+    
+    static QueryIterator compile(Op op, ExecutionContext execCxt)
     {
         return compile(op, root(execCxt), execCxt) ;
     }
     
-    public static QueryIterator compile(Op op, QueryIterator qIter, ExecutionContext execCxt)
+    static QueryIterator compile(Op op, QueryIterator qIter, ExecutionContext execCxt)
     {
-        OpCompiler compiler = new OpCompiler(execCxt) ;
+        OpCompiler compiler = null ;
+        if ( factory == null )
+            compiler = new OpCompiler(execCxt) ;    // Only if default 'factory' gets lost.
+        else
+            compiler = factory.create(execCxt) ;
         QueryIterator q = compiler.compileOp(op, qIter) ;
         return q ;
     }
 
     protected ExecutionContext execCxt ;
     protected CompilerDispatch dispatcher = null ;
-    protected FilterPlacement filterPlacement ;
 
     protected OpCompiler(ExecutionContext execCxt)
     { 
         this.execCxt = execCxt ;
         dispatcher = new CompilerDispatch(this) ;
-        filterPlacement = new FilterPlacement(this, execCxt);
     }
 
     public QueryIterator compileOp(Op op)
@@ -79,6 +96,11 @@ public class OpCompiler
         return StageBuilder.compile(pattern, input, execCxt) ;
     }
 
+    public QueryIterator compile(OpTriple opTriple, QueryIterator input)
+    {
+        return compile(opTriple.asBGP(), input) ;
+    }
+
     public QueryIterator compile(OpQuadPattern quadPattern, QueryIterator input)
     {
         if ( false )
@@ -94,19 +116,29 @@ public class OpCompiler
         throw new ARQNotImplemented("compile/OpQuadPattern") ;
     }
 
+    public QueryIterator compile(OpPath opPath, QueryIterator input)
+    {
+        return new QueryIterPath(opPath.getTriplePath(), input, execCxt) ;
+    }
+
     public QueryIterator compile(OpProcedure opProc, QueryIterator input)
     {
         Procedure procedure = ProcEval.build(opProc, execCxt) ;
         QueryIterator qIter = compileOp(opProc.getSubOp(), input) ;
-        // Delay until query startes executing.
+        // Delay until query starts executing.
         return new QueryIterProcedure(qIter, procedure, execCxt) ;
     }
 
+    public QueryIterator compile(OpPropFunc opPropFunc, QueryIterator input)
+    {
+        Procedure procedure = ProcEval.build(opPropFunc.getProperty(), opPropFunc.getSubjectArgs(),opPropFunc.getObjectArgs(), execCxt) ;
+        QueryIterator qIter = compileOp(opPropFunc.getSubOp(), input) ;
+        return new QueryIterProcedure(qIter, procedure, execCxt) ;
+    }
+
+
     public QueryIterator compile(OpJoin opJoin, QueryIterator input)
     {
-        // TODO Consider building join lists and place filters carefully.  
-        // Place by fixed - if none present, place by optional
-        
         // Look one level in for any filters with out-of-scope variables.
         boolean canDoLinear = JoinClassifier.isLinear(opJoin) ;
 
@@ -114,28 +146,36 @@ public class OpCompiler
             // Streamed evaluation
             return stream(opJoin.getLeft(), opJoin.getRight(), input) ;
         
-        // Input may be null?
-        // Can't do purely indexed (a filter referencing a variable out of scope is in the way)
+        // Can't do purely indexed (e.g. a filter referencing a variable out of scope is in the way)
         // To consider: partial substitution for improved performance (but does it occur for real?)
         
         QueryIterator left = compileOp(opJoin.getLeft(), input) ;
         QueryIterator right = compileOp(opJoin.getRight(), root()) ;
         QueryIterator qIter = new QueryIterJoin(left, right, execCxt) ;
         return qIter ;
-        // Worth doing anything about join(join(..))?  Probably not.
+        // Worth doing anything about join(join(..))?
     }
 
-    public QueryIterator compile(OpStage opStage, QueryIterator input)
-    {
-        return stream(opStage.getLeft(), opStage.getRight(), input) ;
-    }
-    
     // Pass iterator from left directly into the right.
     protected QueryIterator stream(Op opLeft, Op opRight, QueryIterator input)
     {
         QueryIterator left = compileOp(opLeft, input) ;
         QueryIterator right = compileOp(opRight, left) ;
         return right ;
+    }
+
+    // Pass iterator from one step directly into the next.
+    public QueryIterator compile(OpSequence opSequence, QueryIterator input)
+    {
+        QueryIterator qIter = input ;
+        
+        for ( Iterator iter = opSequence.iterator() ; iter.hasNext() ; )
+        {
+            Op sub = (Op)iter.next() ;
+            qIter = compileOp(sub, qIter) ;
+        }
+        
+        return qIter ;
     }
     
     public QueryIterator compile(OpLeftJoin opLeftJoin, QueryIterator input)
@@ -173,20 +213,32 @@ public class OpCompiler
     
     public QueryIterator compile(OpUnion opUnion, QueryIterator input)
     {
-        List x = new ArrayList() ;
-        x.add(opUnion.getLeft()) ;
-
-        // Merge a casaded union
-        while (opUnion.getRight() instanceof OpUnion)
-        {
-            Op opUnionNext = opUnion.getRight() ;
-            x.add(opUnionNext) ;
-        }
-        x.add(opUnion.getRight()) ;
+        List x = flattenUnion(opUnion) ;
         QueryIterator cIter = new QueryIterUnion(input, x, execCxt) ;
         return cIter ;
     }
+    
+    // Based on code from Olaf Hartig.
+    protected List flattenUnion(OpUnion opUnion)
+    {
+        List x = new ArrayList() ;
+        flattenUnion(x, opUnion) ;
+        return x ;
+    }
+    
+    protected void flattenUnion(List acc, OpUnion opUnion)
+    {
+        if (opUnion.getLeft() instanceof OpUnion)
+            flattenUnion(acc, (OpUnion)opUnion.getLeft()) ;
+        else
+            acc.add( opUnion.getLeft() ) ;
 
+        if (opUnion.getRight() instanceof OpUnion)
+            flattenUnion(acc, (OpUnion)opUnion.getRight()) ;
+        else
+            acc.add( opUnion.getRight() ) ;
+    }
+    
     public QueryIterator compile(OpFilter opFilter, QueryIterator input)
     {
         ExprList exprs = opFilter.getExprs() ;
@@ -194,34 +246,50 @@ public class OpCompiler
         
         Op base = opFilter.getSubOp() ;
         
-        if ( base instanceof OpBGP )
-            // Uncompiled => unsplit
-            return filterPlacement.placeFiltersBGP(exprs, ((OpBGP)base).getPattern(), input) ;
+        // Done as a transform prior to compilation to a query plan
+        QueryIterator qIter = compileOp(base, input) ;
 
-        if ( base instanceof OpStage )
-            return filterPlacement.placeFiltersStage(exprs, (OpStage)base, input) ;
-        
-        if ( base instanceof OpGraph )
-        {}
-
-//        if ( base instanceof OpQuadPattern )
-//            return filterPlacement.placeFilter(opFilter.getExpr(), (OpQuadPattern)base, input) ;
-        
-        // Tidy up.
-        if ( base instanceof OpJoin )
-            return filterPlacement.placeFiltersJoin(exprs, (OpJoin)base, input) ;
-        
-        // There must be a better way.
-        if ( base instanceof OpLeftJoin )
+        for ( Iterator iter = exprs.iterator() ; iter.hasNext(); )
         {
-            // Can push in if used only on the LHS 
+            Expr expr = (Expr)iter.next() ;
+            qIter = new QueryIterFilterExpr(qIter, expr, execCxt) ;
         }
+        return qIter ;
         
-        if ( base instanceof OpUnion )
-        {}
-
-        // Nothing special.
-        return filterPlacement.buildOpFilter(exprs, base, input) ;
+//        FilterPlacement filterPlacement = new FilterPlacement(this, execCxt);
+//        if ( base instanceof OpBGP )
+//            // Uncompiled => unsplit
+//            return filterPlacement.placeFiltersBGP(exprs, ((OpBGP)base).getPattern(), input) ;
+//
+//        if ( base instanceof OpSequence )
+//            return filterPlacement.placeFiltersStage(exprs, (OpSequence)base, input) ;
+//        
+//        if ( base instanceof OpGraph )
+//        {}
+//
+////        if ( base instanceof OpQuadPattern )
+////            return filterPlacement.placeFilter(opFilter.getExpr(), (OpQuadPattern)base, input) ;
+//        
+//        // Tidy up.
+//        if ( base instanceof OpJoin )
+//        {
+//            OpJoin opJoin = (OpJoin)base ;
+//            boolean canDoLinear = JoinClassifier.isLinear(opJoin) ;
+//            if ( canDoLinear )
+//                return filterPlacement.placeFiltersJoin(exprs, (OpJoin)base, input) ;
+//        }
+//        
+//        // There must be a better way.
+//        if ( base instanceof OpLeftJoin )
+//        {
+//            // Can push in if used only on the LHS 
+//        }
+//        
+//        if ( base instanceof OpUnion )
+//        {}
+//
+//        // Nothing special.
+//        return filterPlacement.buildOpFilter(exprs, base, input) ;
     }
 
     protected void prepareExprs(ExprList exprs)

@@ -6,15 +6,16 @@
 
 package com.hp.hpl.jena.sparql.algebra;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 
 import com.hp.hpl.jena.graph.Node;
 import com.hp.hpl.jena.graph.Triple;
-
-import com.hp.hpl.jena.sparql.algebra.op.OpBGP;
-import com.hp.hpl.jena.sparql.algebra.op.OpProcedure;
-import com.hp.hpl.jena.sparql.algebra.op.OpStage;
-import com.hp.hpl.jena.sparql.algebra.op.OpTable;
+import com.hp.hpl.jena.query.ARQ;
+import com.hp.hpl.jena.sparql.algebra.op.*;
 import com.hp.hpl.jena.sparql.core.BasicPattern;
 import com.hp.hpl.jena.sparql.expr.Expr;
 import com.hp.hpl.jena.sparql.expr.ExprList;
@@ -22,24 +23,33 @@ import com.hp.hpl.jena.sparql.pfunction.PropFuncArg;
 import com.hp.hpl.jena.sparql.pfunction.PropertyFunctionRegistry;
 import com.hp.hpl.jena.sparql.util.Context;
 import com.hp.hpl.jena.sparql.util.ExprUtils;
-import com.hp.hpl.jena.sparql.util.GNode;
-import com.hp.hpl.jena.sparql.util.GraphList;
-
-import com.hp.hpl.jena.query.ARQ;
-
+import com.hp.hpl.jena.sparql.util.graph.GNode;
+import com.hp.hpl.jena.sparql.util.graph.GraphList;
 
 public class PropertyFunctionGenerator //implements StageGenerator
 {
-    public static Op compile(BasicPattern pattern, Context context)
+    public static Op compile(OpBGP opBGP, Context context)
+    {
+        if ( opBGP.getPattern().isEmpty() )
+            return opBGP ;
+        return compilePattern(opBGP.getPattern(), context) ;
+    }
+    
+    // Old router from OpCompiler. 
+    private static Op compile(BasicPattern pattern, Context context)
     {
         if ( pattern.isEmpty() )
-            // Fixme.
             return new OpBGP(pattern) ;
-        
+
         boolean doingMagicProperties = context.isTrue(ARQ.enablePropertyFunctions) ;
         if ( ! doingMagicProperties )
             return new OpBGP(pattern) ;
         
+        return compilePattern(pattern, context) ;
+    }
+        
+    private static Op compilePattern(BasicPattern pattern, Context context)
+    {   
         // Split into triples and property functions.
 
         PropertyFunctionRegistry registry = chooseRegistry(context) ;
@@ -66,7 +76,7 @@ public class PropertyFunctionGenerator //implements StageGenerator
         // Removes triples of list arguments.  This mutates 'triples'
         findPropertyFunctionArgs(context, triples, propertyFunctionTriples, pfInvocations) ;
         
-        // Now make the OpStage structure.
+        // Now make the OpSequence structure.
         Op op = makeStages(triples, pfInvocations) ;
         return op ;
     }
@@ -148,7 +158,7 @@ public class PropertyFunctionGenerator //implements StageGenerator
 
     private static Op makeStages(BasicPattern triples, Map pfInvocations)
     {
-        // Step 3 : Make the operaqtion expression.
+        // Step 3 : Make the operation expression.
         //   For each property function, insert the implementation 
         //   For each block of non-property function triples, make a BGP.
         
@@ -163,10 +173,10 @@ public class PropertyFunctionGenerator //implements StageGenerator
                 op = flush(pattern, op) ;
                 pattern = null ;
                 PropertyFunctionInstance pfi = (PropertyFunctionInstance)pfInvocations.get(t) ;
-                OpProcedure opProc = new OpProcedure(t.getPredicate(), pfi.getSubjectArgList(), pfi.getObjectArgList(), op) ;
-                op = opProc ;
+                OpPropFunc opPF =  new OpPropFunc(t.getPredicate(), pfi.getSubjectArgList(), pfi.getObjectArgList(), op) ;
+                op = opPF ;
                 continue ;
-            }                
+            }       
                 
             // Regular triples - make sure there is a basic pattern in progress. 
             if ( pattern == null )
@@ -186,14 +196,10 @@ public class PropertyFunctionGenerator //implements StageGenerator
             return op ;
         }
         OpBGP opBGP = new OpBGP(pattern) ;
-
-        if ( op == null )
-            return opBGP ;
-        // XXX Consider if op is a OpProc, then create a stage sequence. 
-        return OpStage.create(op, opBGP) ;
+        return OpSequence.create(op, opBGP) ;
     }
 
-    private static PropertyFunctionRegistry chooseRegistry(Context context)
+    public static PropertyFunctionRegistry chooseRegistry(Context context)
     {
         PropertyFunctionRegistry registry = PropertyFunctionRegistry.get(context) ;
         // Else global

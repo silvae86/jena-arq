@@ -20,10 +20,7 @@ import com.hp.hpl.jena.sparql.algebra.OpPrefixesUsed;
 import com.hp.hpl.jena.sparql.algebra.OpVisitor;
 import com.hp.hpl.jena.sparql.algebra.op.*;
 import com.hp.hpl.jena.sparql.algebra.table.TableUnit;
-import com.hp.hpl.jena.sparql.core.Prologue;
-import com.hp.hpl.jena.sparql.core.Quad;
-import com.hp.hpl.jena.sparql.core.Var;
-import com.hp.hpl.jena.sparql.core.VarExprList;
+import com.hp.hpl.jena.sparql.core.*;
 import com.hp.hpl.jena.sparql.expr.E_Aggregator;
 import com.hp.hpl.jena.sparql.expr.Expr;
 import com.hp.hpl.jena.sparql.expr.ExprList;
@@ -40,7 +37,7 @@ import com.hp.hpl.jena.sparql.util.IndentedWriter;
 public class WriterOp
 {
     private static final int NL = WriterLib.NL ;
-    private static final int NoNL = WriterLib.NoNL ;
+    private static final int NoNL = WriterLib.NoNL ;    // No newline, with space
     private static final int NoSP = WriterLib.NoSP ;
     
     public static void output(Op op)
@@ -97,12 +94,23 @@ public class WriterOp
     {
         private IndentedWriter out ;
         private SerializationContext sContext ;
-//        private VarAlloc varAlloc = new VarAlloc("__") ;
         
         public OpWriterWorker(IndentedWriter out, SerializationContext sCxt)
         { 
             this.sContext = sCxt ;
             this.out = out ;
+        }
+        
+        private void visitOpN(OpN op)
+        {
+            start(op, NL) ;
+            for ( Iterator iter = op.iterator() ; iter.hasNext() ; )
+            {
+                Op sub = (Op)iter.next() ;
+                out.ensureStartOfLine() ;
+                printOp(sub) ;
+            }
+            finish(op) ;
         }
         
         private void visitOp2(Op2 op, ExprList exprs)
@@ -169,26 +177,41 @@ public class WriterOp
             finish(opBGP) ;
         }
         
+        public void visit(OpTriple opTriple)
+        {
+            formatTriple(opTriple.getTriple()) ;
+        }
+
+        public void visit(OpPath opPath)
+        {
+            //start(opPath, NoNL) ;
+            formatTriplePath(opPath.getTriplePath()) ;
+            //finish(opPath) ;
+        }
+
         public void visit(OpProcedure opProc)
         {
             start(opProc, NoNL) ;
             WriterNode.output(out, opProc.getProcId(), sContext) ;
             out.println();
-            if ( opProc.getArgs() != null )
-            {
-                WriterExpr.output(out, opProc.getArgs(), sContext) ;
-                out.println() ;
-            }
-            else
-            {
-                // Each may be a list or just a single term 
-                outputPF(opProc.getSubjectArgs()) ;
-                out.print(" ") ;
-                outputPF(opProc.getObjectArgs()) ;
-                out.println() ;
-            }
+            WriterExpr.output(out, opProc.getArgs(), true, false, sContext) ;
+            out.println() ;
             printOp(opProc.getSubOp()) ;
             finish(opProc) ;
+        }
+        
+        public void visit(OpPropFunc opPropFunc)
+        {
+            start(opPropFunc, NoNL) ;
+            out.print(FmtUtils.stringForNode(opPropFunc.getProperty(), sContext)) ;
+            out.println();
+
+            outputPF(opPropFunc.getSubjectArgs()) ;
+            out.print(" ") ;
+            outputPF(opPropFunc.getObjectArgs()) ;
+            out.println() ;
+            printOp(opPropFunc.getSubOp()) ;
+            finish(opPropFunc) ;
         }
         
         private void outputPF(PropFuncArg pfArg)
@@ -204,8 +227,8 @@ public class WriterOp
         public void visit(OpJoin opJoin)
         { visitOp2(opJoin, null) ; }
 
-        public void visit(OpStage opStage)
-        { visitOp2(opStage, null) ; }
+        public void visit(OpSequence opSequence)
+        { visitOpN(opSequence) ; }
 
         public void visit(OpLeftJoin opLeftJoin)
         { visitOp2(opLeftJoin, opLeftJoin.getExprs()) ; }
@@ -278,6 +301,24 @@ public class WriterOp
 
         public void visit(OpNull opNull)
         { start(opNull, NoSP) ; finish(opNull) ; } 
+        
+        public void visit(OpLabel opLabel)
+        { 
+            String x = FmtUtils.stringForString(opLabel.getObject().toString()) ;
+            if ( opLabel.hasSubOp() )
+            {
+                start(opLabel, NL) ;
+                out.println(x) ;
+                printOp(opLabel.getSubOp()) ;
+                finish(opLabel) ;
+            }
+            else
+            {
+                start(opLabel, NoNL) ;
+                out.print(x) ;
+                finish(opLabel) ;
+            }
+        }
 
         public void visit(OpList opList)
         {
@@ -334,6 +375,7 @@ public class WriterOp
                 formatSortCondition(sc) ;
             }
             finish() ;
+            out.newline();
             printOp(opOrder.getSubOp()) ;
             finish(opOrder) ;
         }
@@ -486,6 +528,9 @@ public class WriterOp
         
         private void formatQuad(Quad qp)
         { WriterNode.output(out, qp, sContext) ; }
+        
+        private void formatTriplePath(TriplePath tp)
+        { WriterPath.output(out, tp, sContext) ; }
     }
 }
 

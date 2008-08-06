@@ -8,7 +8,6 @@ package com.hp.hpl.jena.sparql.sse.builders;
 
 import com.hp.hpl.jena.sparql.algebra.Table;
 import com.hp.hpl.jena.sparql.algebra.TableFactory;
-import com.hp.hpl.jena.sparql.algebra.table.TableUnit;
 import com.hp.hpl.jena.sparql.engine.binding.Binding;
 import com.hp.hpl.jena.sparql.sse.Item;
 import com.hp.hpl.jena.sparql.sse.ItemList;
@@ -18,7 +17,7 @@ public class BuilderTable
 {
     public static Table build(Item item)
     {
-        BuilderBase.checkTagged(item, Tags.tagTable, "Not a (table ...)") ;
+        BuilderLib.checkTagged(item, Tags.tagTable, "Not a (table ...)") ;
 
         ItemList list = item.getList() ;
         int start = 1 ;
@@ -31,7 +30,10 @@ public class BuilderTable
             //  Short hand for well known tables
             String symbol = list.get(1).getSymbol() ;
             if ( symbol.equals("unit") ) 
-                return new TableUnit() ;
+                return TableFactory.createUnit() ;
+            if ( symbol.equals("empty") ) 
+                return TableFactory.createEmpty() ;
+            BuilderLib.broken(list, "Don't recognized table symbol") ;
         }
         
         Table table = TableFactory.create() ;

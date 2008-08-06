@@ -21,7 +21,7 @@ public class ParserRegistry
     
     // Singleton
     static ParserRegistry registry = null ;
-    static public ParserRegistry get()
+    static synchronized public ParserRegistry get()
     {
         if ( registry == null )
             init() ;
@@ -30,24 +30,28 @@ public class ParserRegistry
     
     private ParserRegistry() { }
     
-    private static void init()
+    private static synchronized void init()
     {
-        registry = new ParserRegistry() ;
+        ParserRegistry reg = new ParserRegistry() ;
         
-        registry.add(Syntax.syntaxSPARQL, 
+        reg.add(Syntax.syntaxSPARQL, 
                      new ParserFactory() {
             public boolean accept( Syntax syntax ) { return Syntax.syntaxSPARQL.equals(syntax) ; } 
             public Parser create( Syntax syntax ) { return new ParserSPARQL() ; } }) ;
         
-        registry.add(Syntax.syntaxARQ, 
+        reg.add(Syntax.syntaxARQ, 
                      new ParserFactory() {
             public boolean accept(Syntax syntax ) { return Syntax.syntaxARQ.equals(syntax) ; } 
             public Parser create ( Syntax syntax ) { return new ParserARQ() ; } }) ;
 
-        registry.add(Syntax.syntaxRDQL, 
+        reg.add(Syntax.syntaxRDQL, 
                      new ParserFactory() {
             public boolean accept ( Syntax syntax ) { return Syntax.syntaxRDQL.equals(syntax) ; } 
             public Parser create ( Syntax syntax ) { return new ParserRDQL() ; } }) ;
+        
+        // Defend against concurrent start up (even if not synchronised).
+        // Protects against, not fixes, the problem.
+        registry = reg ;
     }
     
     /** Return a suitable factory for the given syntax

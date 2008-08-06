@@ -30,6 +30,7 @@ public class AlgebraEx
         
         // Generate algebra
         Op op = Algebra.compile(query) ;
+        op = Algebra.optimize(op) ;
         System.out.println(op) ;
         
         // Execute it.

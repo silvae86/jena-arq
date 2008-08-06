@@ -20,6 +20,7 @@ import com.hp.hpl.jena.sparql.util.Utils;
 
 import com.hp.hpl.jena.query.Query;
 import com.hp.hpl.jena.query.QueryFactory;
+import com.hp.hpl.jena.query.Syntax;
 
 public class TestClassify extends TestCase
 {
@@ -86,11 +87,19 @@ public class TestClassify extends TestCase
     public void testClassify_Join_21() 
     { classifyJ("{ { {} OPTIONAL { :s :p ?x } } {?s :p ?x } }", true) ; }
 
+    // Not a join by adjacent BGP flattening. 
+//    public void testClassify_Join_30() 
+//    { classifyJ("{ ?x ?y ?z {SELECT * { ?s ?p ?o} } }", true) ; }
+    
+    // Subselect with modifier is handled witout linearization
+    public void testClassify_Join_31() 
+    { classifyJ("{ ?x ?y ?z {SELECT ?s { ?s ?p ?o} } }", false) ; }
+
     private void classifyJ(String pattern, boolean expected)
     {
         String qs1 = "PREFIX : <http://example/>\n" ;
         String qs = qs1+"SELECT * "+pattern;
-        Query query = QueryFactory.create(qs) ;
+        Query query = QueryFactory.create(qs, Syntax.syntaxARQ) ;
         Op op = Algebra.compile(query.getQueryPattern()) ;
         
         if ( ! ( op instanceof OpJoin ) )
@@ -111,13 +120,16 @@ public class TestClassify extends TestCase
     
     public void testClassify_LeftJoin_04()
     { classifyLJ("{ ?s ?p ?x OPTIONAL { ?s1 ?p2 ?o3 OPTIONAL { ?s1 :p ?x} } }", false)  ; }
+    
+    public void testClassify_LeftJoin_05()
+    { classifyLJ("{ ?s ?p ?x OPTIONAL { SELECT ?s { ?s ?p ?o } } }", false)  ; }
         
     
     private void classifyLJ(String pattern, boolean expected)
     {
         String qs1 = "PREFIX : <http://example/>\n" ;
         String qs = qs1+"SELECT * "+pattern;
-        Query query = QueryFactory.create(qs) ;
+        Query query = QueryFactory.create(qs, Syntax.syntaxARQ) ;
         Op op = Algebra.compile(query.getQueryPattern()) ;
         
         if ( ! ( op instanceof OpLeftJoin ) )

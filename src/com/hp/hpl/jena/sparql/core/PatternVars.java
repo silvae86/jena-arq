@@ -11,12 +11,7 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 
 import com.hp.hpl.jena.graph.Triple;
-import com.hp.hpl.jena.sparql.syntax.Element;
-import com.hp.hpl.jena.sparql.syntax.ElementNamedGraph;
-import com.hp.hpl.jena.sparql.syntax.ElementTriplesBlock;
-import com.hp.hpl.jena.sparql.syntax.ElementVisitor;
-import com.hp.hpl.jena.sparql.syntax.ElementVisitorBase;
-import com.hp.hpl.jena.sparql.syntax.ElementWalker;
+import com.hp.hpl.jena.sparql.syntax.*;
 import com.hp.hpl.jena.sparql.util.VarUtils;
 
 
@@ -38,13 +33,26 @@ public class PatternVars
 
         public void visit(ElementTriplesBlock el)
         {
-            for (Iterator iter = el.triples() ; iter.hasNext() ; )
+            for (Iterator iter = el.patternElts() ; iter.hasNext() ; )
             {
                 Triple t = (Triple)iter.next() ;
                 VarUtils.addVarsFromTriple(acc, t) ;
             }
         }
 
+        public void visit(ElementPathBlock el) 
+        {
+            for (Iterator iter = el.patternElts() ; iter.hasNext() ; )
+            {
+                TriplePath tp = (TriplePath)iter.next() ;
+                // If it's triple-izable, then use the triple. 
+                if ( tp.isTriple() )
+                    VarUtils.addVarsFromTriple(acc, tp.asTriple()) ;
+                else
+                    VarUtils.addVarsFromTriplePath(acc, tp) ;
+            }
+        }
+        
 //      public void visit(ElementFilter el)
 //      {
 //      el.getExpr().varsMentioned(acc);
@@ -53,6 +61,18 @@ public class PatternVars
         public void visit(ElementNamedGraph el)
         {
             VarUtils.addVar(acc, el.getGraphNameNode()) ;
+        }
+        
+        public void visit(ElementSubQuery el)
+        {
+            el.getQuery().setResultVars() ;
+            VarExprList x = el.getQuery().getProject() ;
+            acc.addAll(x.getVars()) ;
+        }
+        
+        public void visit(ElementAssign el)
+        {
+            acc.add(el.getVar()) ;
         }
     }
 }

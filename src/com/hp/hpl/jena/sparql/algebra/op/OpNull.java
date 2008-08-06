@@ -9,11 +9,16 @@ package com.hp.hpl.jena.sparql.algebra.op;
 import com.hp.hpl.jena.sparql.algebra.Op;
 import com.hp.hpl.jena.sparql.algebra.OpVisitor;
 import com.hp.hpl.jena.sparql.algebra.Transform;
+import com.hp.hpl.jena.sparql.sse.Tags;
 import com.hp.hpl.jena.sparql.util.NodeIsomorphismMap;
 
 public class OpNull extends Op0
 {
-
+    // Only really need one.
+    public static OpNull create() { return new OpNull() ; }
+    
+    private OpNull() { }
+    
     public Op apply(Transform transform)
     { return transform.transform(this) ; }
 
@@ -23,7 +28,7 @@ public class OpNull extends Op0
 
     public String getName()
     {
-        return "null" ;
+        return Tags.tagNull ;
     }
 
     public int hashCode()

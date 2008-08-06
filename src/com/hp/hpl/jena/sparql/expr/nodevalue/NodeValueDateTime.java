@@ -14,7 +14,6 @@ import com.hp.hpl.jena.sparql.expr.NodeValue;
 
 public class NodeValueDateTime extends NodeValue
 {
-    // GregorianCalendar always has a timezone.
     XSDDateTime dateTime ;
     
     public NodeValueDateTime(XSDDateTime xdt) { dateTime = xdt ; }
@@ -29,7 +28,6 @@ public class NodeValueDateTime extends NodeValue
     protected Node makeNode()
     {
         String lex = dateTime.toString() ;
-        //String lex = Utils.calendarToXSDDateTimeString(date) ;
         return Node.createLiteral(lex, null, XSDDatatype.XSDdateTime) ;
     }
     

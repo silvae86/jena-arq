@@ -9,13 +9,7 @@ package com.hp.hpl.jena.sparql.modify.op;
 import java.util.ArrayList;
 import java.util.List;
 
-import java.util.Iterator;
-
-
-import com.hp.hpl.jena.graph.Graph;
 import com.hp.hpl.jena.graph.Node;
-import com.hp.hpl.jena.update.GraphStore;
-import com.hp.hpl.jena.update.UpdateException;
 
 /**
  * @author Andy Seaborne
@@ -29,33 +23,6 @@ public abstract class GraphUpdateN extends Update
     public void addGraphName(Node node) { graphNodes.add(node) ; }
     public void addGraphName(String uri) { graphNodes.add(Node.createURI(uri)) ; }
     public List getGraphNames() { return graphNodes ; }
-    
-    protected abstract void startExec(GraphStore graphStore) ;
-    protected abstract void finishExec() ;
-    protected abstract void exec(Graph graph) ;
-    
-    //@Override
-    public void exec(GraphStore graphStore)
-    {
-        startExec(graphStore) ;
-        if ( hasGraphNames() )
-        {
-            for ( Iterator iter = graphNodes.iterator() ; iter.hasNext() ; )
-            {
-                Node gn = (Node)iter.next() ;
-                Graph g = graphStore.getGraph(gn) ;
-                if ( g == null )
-                    throw new UpdateException("No such graph: "+gn) ; 
-                exec(g) ;
-            }
-        }
-        else
-        {
-            Graph g = graphStore.getDefaultGraph() ;
-            exec(g) ;
-        }
-        finishExec() ;
-    }
 }
 
 

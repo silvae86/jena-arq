@@ -13,7 +13,9 @@ package com.hp.hpl.jena.sparql.syntax;
 public interface ElementVisitor
 {
     public void visit(ElementTriplesBlock el) ;
+    public void visit(ElementPathBlock el) ;
     public void visit(ElementFilter el) ;
+    public void visit(ElementAssign el) ;
     public void visit(ElementUnion el) ;
     public void visit(ElementOptional el) ;
     public void visit(ElementGroup el) ;
@@ -21,6 +23,7 @@ public interface ElementVisitor
     public void visit(ElementNamedGraph el) ;
     public void visit(ElementUnsaid el) ;
     public void visit(ElementService el) ;
+    public void visit(ElementSubQuery el) ;
 }
 
 /*

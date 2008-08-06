@@ -15,6 +15,7 @@ import com.hp.hpl.jena.graph.Node;
 import com.hp.hpl.jena.graph.Node_Variable;
 import com.hp.hpl.jena.sparql.ARQConstants;
 import com.hp.hpl.jena.sparql.ARQInternalErrorException;
+import com.hp.hpl.jena.sparql.engine.binding.Binding;
 import com.hp.hpl.jena.sparql.expr.ExprVar;
 
 /** A SPARQL variable
@@ -43,6 +44,28 @@ public class Var extends Node_Variable
     
     
     public static Var alloc(ExprVar nv)         { return new Var(nv) ; }
+    
+    public static Node lookup(Binding binding, Node node)
+    {
+//        if ( ! node.isVariable() )
+//            return node ;
+//
+//        if ( ! (node instanceof Var) )
+//            ALog.fatal(Var.class, "Node_Variable, not a Var") ; 
+        
+        if ( ! Var.isVar(node) )
+            return node ;
+        Var var = Var.alloc(node) ;
+        return lookup(binding, var) ;
+    }
+    
+    public static Node lookup(Binding binding, Var var)
+    {
+        Node n = binding.get(var) ;
+        if ( n != null )
+            return n ;
+        return var ;
+    }
     
     private Var(String varName)      { super(varName) ; }
     
@@ -109,7 +132,7 @@ public class Var extends Node_Variable
     { return node.isVariable() && isBlankNodeVarName(node.getName()) ; }
 
     public static boolean isBlankNodeVarName(String x)
-    { return x.startsWith(ARQConstants.anonVarMarker) ; }
+    { return x.startsWith(ARQConstants.allocVarAnonMarker) ; }
 
     public static boolean isAllocVar(Node node)
     { return node.isVariable() && isAllocVarName(node.getName()) ; }

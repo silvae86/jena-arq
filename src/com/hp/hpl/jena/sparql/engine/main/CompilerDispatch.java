@@ -52,10 +52,31 @@ class CompilerDispatch implements OpVisitor
         push(qIter) ;
     }
 
+    public void visit(OpTriple opTriple)
+    {
+        QueryIterator input = pop() ;
+        QueryIterator qIter = opCompiler.compile(opTriple, input) ;
+        push(qIter) ;
+    }
+
+    public void visit(OpPath opPath)
+    {
+        QueryIterator input = pop() ;
+        QueryIterator qIter = opCompiler.compile(opPath, input) ;
+        push(qIter) ;
+    }
+
     public void visit(OpProcedure opProc)
     {
         QueryIterator input = pop() ;
         QueryIterator qIter = opCompiler.compile(opProc, input) ;
+        push(qIter) ;
+    }
+
+    public void visit(OpPropFunc opPropFunc)
+    {
+        QueryIterator input = pop() ;
+        QueryIterator qIter = opCompiler.compile(opPropFunc, input) ;
         push(qIter) ;
     }
 
@@ -66,10 +87,10 @@ class CompilerDispatch implements OpVisitor
         push(qIter) ;
     }
 
-    public void visit(OpStage opStage)
+    public void visit(OpSequence opSequence)
     {
         QueryIterator input = pop() ;
-        QueryIterator qIter = opCompiler.compile(opStage, input) ;
+        QueryIterator qIter = opCompiler.compile(opSequence, input) ;
         push(qIter) ;
     }
     
@@ -141,6 +162,17 @@ class CompilerDispatch implements OpVisitor
         QueryIterator input = pop() ;
         QueryIterator qIter = opCompiler.compile(opNull, input) ;
         push(qIter) ;
+    }
+
+    public void visit(OpLabel opLabel)
+    {
+        if ( opLabel.hasSubOp() )
+        {   
+            QueryIterator input = pop() ;
+            QueryIterator qIter = opCompiler.compileOp(opLabel.getSubOp(), input) ;
+            push(qIter) ;
+        }
+        // Else leave the iterator on the stack (i.e. as if it were join identity / unit table)
     }
 
     public void visit(OpList opList)

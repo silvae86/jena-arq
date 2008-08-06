@@ -22,7 +22,7 @@ import com.hp.hpl.jena.util.iterator.ExtendedIterator;
 
 public class TemplateGraph extends TemplateGroup
 {
-    // Not subtle.  May remove or rethink if this proves useful and a performance bottleneck. 
+    // Not subtle.  May remove or rethink if this proves not useful and a performance bottleneck. 
     private Graph graph ;
 
     public TemplateGraph(Graph graph)

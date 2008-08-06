@@ -1,13 +1,11 @@
 <project name="ARQ" default="main" basedir=".">
 
-  <!-- TODO Convert value's to location's -->
-
   <property name="Name"            value="ARQ"/>
   <property name="name"            value="arq"/>
   
   <!-- The major and minor version numbers  -->
   <property name="version-major"   value="2"/>
-  <property name="version-minor"   value="2"/>
+  <property name="version-minor"   value="4"/>
   <property name="version-status"  value=""/>
   <property name="version"
             value="${version-major}.${version-minor}${version-status}"/>
@@ -304,6 +302,7 @@
         <!-- Just the minimum to produce a buildable grammar -->
         <include name="master.jj"/>
         <include name="sparql.jj"/>
+        <include name="sparql-update.jj"/>
         <include name="arq.jj"/>
         <include name="grammar"/>
       </fileset>
@@ -347,6 +346,7 @@
         <!-- FrontPage internal directories -->
         <exclude name="**/_vti*/**"/>
         <exclude name="**/_private/**"/>
+        <exclude name="**/javadoc-all/**"/>
         <exclude name="**/desktop.ini"/>
       </fileset>
     </copy>

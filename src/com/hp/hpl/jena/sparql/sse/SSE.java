@@ -34,6 +34,7 @@ import com.hp.hpl.jena.sparql.sse.lang.SSE_Parser;
 import com.hp.hpl.jena.sparql.sse.writers.WriterGraph;
 import com.hp.hpl.jena.sparql.sse.writers.WriterNode;
 import com.hp.hpl.jena.sparql.sse.writers.WriterOp;
+import com.hp.hpl.jena.sparql.util.FmtUtils;
 import com.hp.hpl.jena.sparql.util.IndentedWriter;
 
 import com.hp.hpl.jena.query.Dataset;
@@ -123,6 +124,16 @@ public class SSE
         return BuilderGraph.buildGraph(item) ;
     }
     
+    /** Read in a file, parse, and obtain a graph */
+    public static void readGraph(Graph graph, String filename) { readGraph(graph, filename, null) ; }
+    
+    /** Read in a file, parse, and obtain a graph */
+    public static void readGraph(Graph graph, String filename, PrefixMapping pmap)
+    {
+        Item item = readFile(filename, pmap) ;
+        BuilderGraph.buildGraph(graph, item) ;
+    }
+    
     /** Read in a file, parse, and obtain a SPARQL algebra op */
     public static Op readOp(String filename) { return Algebra.read(filename) ; }
     
@@ -167,6 +178,9 @@ public class SSE
         catch (FileNotFoundException ex)
         { throw new NotFoundException("Not found: "+filename) ; }
     }
+    
+    /** Parse a string and obtain an SSE item expression (no additional prefix mappings)*/
+    public static Item parseRaw(String str) { return parse(str, new PrefixMappingImpl()) ; }
     
     /** Parse a string and obtain an SSE item expression */
     public static Item parse(String str) { return parse(str, null) ; }
@@ -249,9 +263,13 @@ public class SSE
         return handler.getItem() ;
     }
     
+    // ---- To String
+    public static String format(Node node)                      { return FmtUtils.stringForNode(node) ; }
+    public static String format(Node node, PrefixMapping pmap)  { return FmtUtils.stringForNode(node, pmap) ; }
+    
     // ----
     
-    public static void write(Op op) { WriterOp.output(IndentedWriter.stdout, op) ; }
+    public static void write(Op op) { WriterOp.output(IndentedWriter.stdout, op) ; IndentedWriter.stdout.flush() ; }
     public static void write(OutputStream out, Op op) { WriterOp.output(out, op) ; }
     public static void write(IndentedWriter out, Op op) { WriterOp.output(out, op) ; }
 
@@ -259,6 +277,7 @@ public class SSE
     { 
         WriterGraph.output(IndentedWriter.stdout, graph, 
                            new SerializationContext(graph.getPrefixMapping())) ;
+        IndentedWriter.stdout.flush() ;
     }
     public static void write(OutputStream out, Graph graph)
     { 
@@ -273,7 +292,7 @@ public class SSE
                            new SerializationContext(graph.getPrefixMapping())) ;
     }
 
-    public static void write(DatasetGraph dataset) { write(IndentedWriter.stdout, dataset) ; } 
+    public static void write(DatasetGraph dataset) { write(IndentedWriter.stdout, dataset) ; IndentedWriter.stdout.flush() ; } 
     public static void write(OutputStream out, DatasetGraph dataset)
     { 
         IndentedWriter iOut = new IndentedWriter(out) ;
@@ -290,7 +309,7 @@ public class SSE
     public static void write(OutputStream out, Dataset dataset)     { write(out, dataset.asDatasetGraph()) ; } 
     public static void write(IndentedWriter out, Dataset dataset)   { write(out, dataset.asDatasetGraph()) ; }
 
-    public static void write(Triple triple) { write(IndentedWriter.stdout, triple) ; }
+    public static void write(Triple triple) { write(IndentedWriter.stdout, triple) ; IndentedWriter.stdout.flush() ; }
     public static void write(OutputStream out, Triple triple)
     { 
         IndentedWriter iOut = new IndentedWriter(out) ;
@@ -298,9 +317,12 @@ public class SSE
         iOut.flush();
     }
     public static void write(IndentedWriter out, Triple triple)                         
-    { WriterNode.output(IndentedWriter.stdout, triple, sCxt(defaultDefaultPrefixMapWrite)) ; }
+    { 
+        WriterNode.output(IndentedWriter.stdout, triple, sCxt(defaultDefaultPrefixMapWrite)) ; 
+        IndentedWriter.stdout.flush() ;
+    }
     
-    public static void write(Node node) { write(IndentedWriter.stdout, node) ; }
+    public static void write(Node node) { write(IndentedWriter.stdout, node) ; IndentedWriter.stdout.flush() ; }
     public static void write(OutputStream out, Node node)
     { 
         IndentedWriter iOut = new IndentedWriter(out) ;
@@ -308,8 +330,10 @@ public class SSE
         iOut.flush();
     }
     public static void write(IndentedWriter out, Node node)                         
-    { WriterNode.output(IndentedWriter.stdout, node, sCxt(defaultDefaultPrefixMapWrite)) ; }
-
+    { 
+        WriterNode.output(IndentedWriter.stdout, node, sCxt(defaultDefaultPrefixMapWrite)) ;
+        IndentedWriter.stdout.flush() ;
+    }
     
     private static SerializationContext sCxt(Graph graph)
     {

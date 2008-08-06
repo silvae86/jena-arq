@@ -30,9 +30,9 @@ import com.hp.hpl.jena.sparql.core.Var;
 import com.hp.hpl.jena.sparql.engine.binding.Binding;
 import com.hp.hpl.jena.sparql.engine.binding.BindingMap;
 import com.hp.hpl.jena.sparql.util.ALog;
-import com.hp.hpl.jena.sparql.util.GraphUtils;
 import com.hp.hpl.jena.sparql.util.LabelToNodeMap;
 import com.hp.hpl.jena.sparql.util.StringUtils;
+import com.hp.hpl.jena.sparql.util.graph.GraphUtils;
 
 import com.hp.hpl.jena.query.ARQ;
 import com.hp.hpl.jena.query.QuerySolution;
@@ -101,7 +101,11 @@ class XMLInputStAX extends SPARQLResult
             worker(xReader, model) ;
         } catch (XMLStreamException e)
         {
-            throw new ResultSetException("Can't initialize StAX parsing engine") ;
+            throw new ResultSetException("Can't initialize StAX parsing engine", e) ;
+        }
+        catch (Exception ex)
+        {
+            throw new ResultSetException("Failed when initializing the StAX parsing engine", ex) ;
         }
     }
 
@@ -118,9 +122,12 @@ class XMLInputStAX extends SPARQLResult
             worker(xReader, model) ;
         } catch (XMLStreamException e)
         {
-            throw new ResultSetException("Can't initialize StAX parsing engine") ;
+            throw new ResultSetException("Can't initialize StAX parsing engine", e) ;
         }
-        
+        catch (Exception ex)
+        {
+            throw new ResultSetException("Failed when initializing the StAX parsing engine", ex) ;
+        }
     }
 
     private void worker(XMLStreamReader xReader, Model model)
@@ -255,6 +262,9 @@ class XMLInputStAX extends SPARQLResult
     public boolean isOrdered() { return ordered ; }
     
     public boolean isDistinct() { return distinct ; }
+
+    // No model - it was from a stream
+    public Model getResourceModel() { return null ; }
 
     public void remove()
     {

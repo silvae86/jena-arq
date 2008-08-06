@@ -28,6 +28,7 @@ import com.hp.hpl.jena.rdf.model.RDFNode;
 import com.hp.hpl.jena.rdf.model.Resource;
 import com.hp.hpl.jena.rdf.model.Statement;
 import com.hp.hpl.jena.shared.PrefixMapping;
+import com.hp.hpl.jena.sparql.ARQConstants;
 import com.hp.hpl.jena.sparql.core.DatasetGraph;
 import com.hp.hpl.jena.sparql.core.describe.DescribeHandler;
 import com.hp.hpl.jena.sparql.core.describe.DescribeHandlerRegistry;
@@ -35,12 +36,13 @@ import com.hp.hpl.jena.sparql.engine.binding.Binding;
 import com.hp.hpl.jena.sparql.engine.binding.BindingMap;
 import com.hp.hpl.jena.sparql.engine.binding.BindingRoot;
 import com.hp.hpl.jena.sparql.engine.binding.BindingUtils;
+import com.hp.hpl.jena.sparql.syntax.ElementGroup;
 import com.hp.hpl.jena.sparql.syntax.Template;
 import com.hp.hpl.jena.sparql.util.ALog;
 import com.hp.hpl.jena.sparql.util.Context;
 import com.hp.hpl.jena.sparql.util.DatasetUtils;
-import com.hp.hpl.jena.sparql.util.GraphUtils;
 import com.hp.hpl.jena.sparql.util.ModelUtils;
+import com.hp.hpl.jena.sparql.util.graph.GraphUtils;
 import com.hp.hpl.jena.util.FileManager;
 
 /** All the SPARQL query result forms made from a graph-level execution object */ 
@@ -81,6 +83,8 @@ public class QueryExecutionBase implements QueryExecution
     {
         if ( queryIterator != null )
             queryIterator.close() ;
+        if ( plan != null )
+            plan.close() ;
     }
 
     public ResultSet execSelect()
@@ -138,8 +142,12 @@ public class QueryExecutionBase implements QueryExecution
     {
         if ( ! query.isDescribeType() )
             throw new QueryExecException("Attempt to get a DESCRIBE result from a "+labelForQuery(query)+" query") ; 
-        query.setQueryResultStar(true) ;
-
+        //Was: query.setQueryResultStar(true) ; but why?
+        query.setResultVars() ;
+        // If there was no WhereClause, use an empty pattern (one solution, no columns). 
+        if ( query.getQueryPattern() == null )
+            query.setQueryPattern(new ElementGroup()) ;
+        
         Set set = new HashSet() ;
 
         //May return null (no query pattern) 
@@ -168,6 +176,7 @@ public class QueryExecutionBase implements QueryExecution
             for ( Iterator iter = query.getResultURIs().iterator() ; iter.hasNext() ; )
             {
                 Node n = (Node)iter.next() ;
+                // Need to make dataset available to describe handlers.
                 RDFNode rNode = ModelUtils.convertGraphNodeToRDFNode(n, dataset.getDefaultModel()) ;
                 set.add(rNode) ;
             }
@@ -176,6 +185,7 @@ public class QueryExecutionBase implements QueryExecution
         // Create new handlers for this process.
         List dhList = DescribeHandlerRegistry.get().newHandlerList() ;
 
+        getContext().put(ARQConstants.sysCurrentDataset, getDataset()) ;
         // Notify start of describe phase
         for ( Iterator handlers = dhList.iterator() ; handlers.hasNext() ; )
         {

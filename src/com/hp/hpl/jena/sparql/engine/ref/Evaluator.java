@@ -12,6 +12,7 @@ import com.hp.hpl.jena.graph.Node;
 
 import com.hp.hpl.jena.sparql.algebra.Table;
 import com.hp.hpl.jena.sparql.core.BasicPattern;
+import com.hp.hpl.jena.sparql.core.TriplePath;
 import com.hp.hpl.jena.sparql.core.VarExprList;
 import com.hp.hpl.jena.sparql.engine.ExecutionContext;
 import com.hp.hpl.jena.sparql.expr.ExprList;
@@ -23,9 +24,11 @@ public interface Evaluator
     
     public Table basicPattern(BasicPattern pattern) ;
     
-    // Two forms - depending on whether a property function or a procedure.
+    public Table pathPattern(TriplePath triplePath) ;
+
+    // Two forms that provide custom code evaluation
     public Table procedure(Table table, Node procId, ExprList args) ;
-    public Table procedure(Table table, Node procId, PropFuncArg subjArgs, PropFuncArg objArgs) ;
+    public Table propertyFunction(Table table, Node procId, PropFuncArg subjArgs, PropFuncArg objArgs) ;
     
     public Table join(Table tableLeft, Table tableRight) ;
     public Table leftJoin(Table tableLeft, Table tableRight, ExprList expr) ;

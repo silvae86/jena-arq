@@ -8,6 +8,7 @@ package com.hp.hpl.jena.sparql.algebra.op;
 
 import com.hp.hpl.jena.sparql.algebra.*;
 import com.hp.hpl.jena.sparql.algebra.table.TableUnit;
+import com.hp.hpl.jena.sparql.sse.Tags;
 import com.hp.hpl.jena.sparql.util.NodeIsomorphismMap;
 
 public class OpTable extends Op0
@@ -29,7 +30,7 @@ public class OpTable extends Op0
     public Table getTable()
     { return table ; }
     
-    public String getName() { return "table" ; }
+    public String getName() { return Tags.tagTable ; }
     
     public void visit(OpVisitor opVisitor)
     { opVisitor.visit(this) ; }

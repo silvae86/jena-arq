@@ -11,6 +11,7 @@ package com.hp.hpl.jena.sparql.lang.sparql ;
 
 
 
+
 public class SPARQLParserTokenManager implements SPARQLParserConstants
 {
   public  java.io.PrintStream debugStream = System.out;

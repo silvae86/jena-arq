@@ -6,17 +6,40 @@
 
 package com.hp.hpl.jena.sparql.lang;
 
+import java.util.Stack;
+
 import com.hp.hpl.jena.query.Query;
 
 public class ParserQueryBase extends ParserBase 
 {
-    Query query ;
+    private Stack stack = new Stack() ;
+    protected Query query ;
+
     public void setQuery(Query q)
     { 
         query = q ;
         setPrologue(q) ;
     }
+
     public Query getQuery() { return query ; }
+    
+    protected void startSubSelect()
+    {
+        stack.push(query) ;
+        Query subQuery = new Query(query) ;
+        query = subQuery ;
+        setPrologue(subQuery) ;
+    }
+    
+    protected Query endSubSelect(int line, int column)
+    {
+        Query subQuery = query ;
+        if ( ! subQuery.isSelectType() )
+            throwParseException("Subquery not a SELECT query", line, column) ;
+        query = (Query)stack.pop();
+        setPrologue(query) ;
+        return subQuery ;
+    }
 }
 
 /*

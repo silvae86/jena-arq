@@ -39,9 +39,7 @@ public class JSONOutputResultSet implements ResultSetProcessor, JSONResults
     static boolean multiLineValues = false ;
     static boolean multiLineVarNames = false ;
 
-    static 
-    
-    IndentedWriter  out ;
+    IndentedWriter out ;
     int bNodeCounter = 0 ;
     Map bNodeMap = new HashMap() ;
     
@@ -148,9 +146,11 @@ public class JSONOutputResultSet implements ResultSetProcessor, JSONResults
         if ( multiLineValues ) out.println() ;
         
         out.incIndent() ;
-        if ( value == null )
-            printUnbound() ;
-        else if ( value.isLiteral() )
+        // Old, explicit unbound
+//        if ( value == null )
+//            printUnbound() ;
+//        else
+      	if ( value.isLiteral() )
             printLiteral((Literal)value) ;
         else if ( value.isResource() )
             printResource((Resource)value) ;

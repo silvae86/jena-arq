@@ -6,12 +6,15 @@
 
 package com.hp.hpl.jena.sparql.lang;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import com.hp.hpl.jena.datatypes.RDFDatatype;
 import com.hp.hpl.jena.datatypes.TypeMapper;
 import com.hp.hpl.jena.datatypes.xsd.XSDDatatype;
+import com.hp.hpl.jena.graph.Graph;
 import com.hp.hpl.jena.graph.Node;
 import com.hp.hpl.jena.graph.Triple;
 import com.hp.hpl.jena.n3.JenaURIException;
@@ -20,13 +23,17 @@ import com.hp.hpl.jena.query.QueryParseException;
 import com.hp.hpl.jena.rdf.model.AnonId;
 import com.hp.hpl.jena.sparql.ARQInternalErrorException;
 import com.hp.hpl.jena.sparql.core.Prologue;
+import com.hp.hpl.jena.sparql.core.TriplePath;
 import com.hp.hpl.jena.sparql.core.Var;
 import com.hp.hpl.jena.sparql.expr.Expr;
+import com.hp.hpl.jena.sparql.path.Path;
 import com.hp.hpl.jena.sparql.syntax.Element;
 import com.hp.hpl.jena.sparql.syntax.ElementGroup;
+import com.hp.hpl.jena.sparql.syntax.Template;
 import com.hp.hpl.jena.sparql.syntax.TripleCollector;
 import com.hp.hpl.jena.sparql.util.ExprUtils;
 import com.hp.hpl.jena.sparql.util.LabelToNodeMap;
+import com.hp.hpl.jena.sparql.util.graph.GraphUtils;
 import com.hp.hpl.jena.vocabulary.RDF;
 
 public class ParserBase
@@ -66,7 +73,7 @@ public class ParserBase
     
     public ParserBase() {}
     
-    Prologue prologue ;
+    protected Prologue prologue ;
     public void setPrologue(Prologue prologue) { this.prologue = prologue ; }
     public Prologue getPrologue() { return prologue ; }
     
@@ -235,37 +242,6 @@ public class ParserBase
     }
     
     
-    
-//    protected Node createNodeFromQuotedURI(String s, int line, int column)
-//    {
-//        s = stripQuotes(s) ;
-//        return createNodeFromURI(s, line, column) ;
-//    }
-//    
-//    protected Node createNodeFromURI(String s, int line, int column)
-//    {
-//        //s = unescapeCodePoint(s, line, column) ;
-//        String uriStr = s ;     // Mutated
-//        
-//        // Is it a bNode label? i.e. <_:xyz>
-//        if ( skolomizedBNodes && s.startsWith(bNodeLabelStart) )
-//        {
-//            s = s.substring(bNodeLabelStart.length()) ;
-//            Node n = Node.createAnon(new AnonId(s)) ;
-//            return n ;
-//        }
-//        
-//        if ( getPrologue() != null )
-//        {
-//            if ( getPrologue().getResolver() != null )
-//                try {
-//                    uriStr = getPrologue().getResolver().resolve(uriStr) ;
-//                } catch (JenaURIException ex)
-//                { throwParseException(ex.getMessage(), line, column) ; }
-//        }
-//        return Node.createURI(uriStr) ;
-//    }
-//    
     // -------- Basic Graph Patterns and Blank Node label scopes
     
     // A BasicGraphPattern is any sequence of TripleBlocks, separated by filters,
@@ -337,7 +313,22 @@ public class ParserBase
         acc.addTriple(index, new Triple(s, p, o)) ;
     }
     
+    protected void insert(TripleCollector acc, Node s, Node p, Path path, Node o)
+    {
+        if ( p == null )
+            acc.addTriplePath(new TriplePath(s, path, o)) ;
+        else
+            acc.addTriple(new Triple(s, p, o)) ;
+            
+    }
     
+    protected void insert(TripleCollector acc, int index, Node s, Node p, Path path, Node o)
+    {
+        if ( p == null )
+            acc.addTriplePath(index, new TriplePath(s, path, o)) ;
+        else
+            acc.addTriple(index, new Triple(s, p, o)) ;
+    }
 
     protected Expr asExpr(Node n)
     {
@@ -361,6 +352,17 @@ public class ParserBase
     public static String testUnescapeStr(String s)
     {
         return new ParserBase().unescapeStr(s) ;
+    }
+    
+    // SPARQL/Update 
+    protected Graph convertTemplateToTriples(Template template, int line, int col)
+    {
+        List acc = new ArrayList() ;
+        TriplesDataCollector collector = new TriplesDataCollector(acc, line, col) ;
+        template.visit(collector) ;
+        Graph g = GraphUtils.makePlainGraph() ;
+        g.getBulkUpdateHandler().add(acc) ;
+        return g ;
     }
     
     protected String unescapeStr(String s)

@@ -1,8 +1,10 @@
 // SPARQL/Update
 // Author:  Andy Seaborne andy.seaborne@hp.com
-// (c) Copyright 2007 Hewlett-Packard Development Company, LP
+// (c) Copyright 2007, 2008 Hewlett-Packard Development Company, LP
 // All rights reserved.
 // See end of file for details.
+
+// No longer the master version - see master.jj
 
 options
 {
@@ -16,7 +18,7 @@ options
 
 PARSER_BEGIN(SPARQLUpdateParser)
 /*
- * (c) Copyright 2007 Hewlett-Packard Development Company, LP
+ * (c) Copyright 2007, 2008 Hewlett-Packard Development Company, LP
  * All rights reserved.
  */
 
@@ -33,13 +35,18 @@ public class SPARQLUpdateParser extends SPARQLUpdateParserBase
 }
 PARSER_END(SPARQLUpdateParser)
 
-// SPARQUL parts.
+// SPARQL/Update parts.
 
 TOKEN [IGNORE_CASE] :
 {
   <MODIFY:      "modify">
 | <INSERT:      "insert">
 | <DELETE:      "delete">
+| <DATA:        "data">
+
+| <ADD:         "add">
+| <REMOVE:      "remove">
+
 | <LOAD:        "load" >
 | <CLEAR:       "clear" >
 | <CREATE:      "create" >
@@ -61,46 +68,82 @@ void SPARQLUpdate() : {}
     <EOF>
 }
 
-void Update() : { }
+void Update() : { Update up = null ; }
 {
-    (
-        { UpdatePattern upPat = null ; Element el ; }
-        ( upPat = Modify() | upPat = Insert() | upPat = Delete() ) 
-        ( el = WhereClause() { upPat.setPattern(el) ; } )?
-        { getRequest().addUpdate(upPat) ; }
-    ) |
-    (
-      { Update up = null ; }
-      ( up = Load() | up = Clear() )
-      { getRequest().addUpdate(up) ; }
-    )
+  (  up = Modify() | up = Insert() | up = Delete() | up = Load() | up = Clear() )
+    { getRequest().addUpdate(up) ; }
 }
 
 UpdateModify Modify() : 
-{ UpdateModify up = new UpdateModify() ; String iri ; Template template ; }
+{ UpdateModify up = new UpdateModify() ; String iri ; Template template ; Element el ; }
 {
     <MODIFY>
     ( iri = GraphIRI() { up.addGraphName(iri) ; } )*
     <DELETE> template = ConstructTemplate() { up.setDeleteTemplate(template) ; }
     <INSERT> template = ConstructTemplate() { up.setInsertTemplate(template) ; }
-    { return new UpdateModify() ; }
-}
-
-UpdatePattern Delete() : 
-{ UpdateDelete up = new UpdateDelete() ; String iri ; Template template ; }
-{
-    <DELETE> 
-    ((<FROM>)? iri = IRIref() { up.addGraphName(iri) ; } )*
-    template = ConstructTemplate() { up.setDeleteTemplate(template) ; }
+    ( el = WhereClause() { up.setPattern(el) ; } )?
     { return up ; }
 }
 
-UpdatePattern Insert() :
-{ UpdateInsert up = new UpdateInsert() ; String iri ; Template template ; }
+Update Delete() : { Update up ; }
 {
-    <INSERT> 
-    ((<INTO>)? iri = IRIref() { up.addGraphName(iri) ; } )*
-    template = ConstructTemplate() { up.setInsertTemplate(template) ; }
+  <DELETE> 
+  ( up = DeleteData() | up = DeleteTemplate() )
+    { return up ; }
+}
+
+Update DeleteData() : 
+{ UpdateDeleteData update = new UpdateDeleteData() ; 
+  String iri ; Template template ;
+  Token t ; }
+{
+    t = <DATA>
+    ((<FROM>)? iri = IRIref() { update.addGraphName(iri) ; } )*
+   template = ConstructTemplate()
+   { Graph triples = convertTemplateToTriples(template,
+                                        t.beginLine, t.beginColumn) ;
+     update.setData(triples) ;
+     return update ;
+    }
+}
+
+Update DeleteTemplate() : 
+{ UpdateDelete up = new UpdateDelete() ; String iri ; Template template ; Element el ;  }
+{
+  ((<FROM>)? iri = IRIref() { up.addGraphName(iri) ; } )*
+  template = ConstructTemplate() { up.setDeleteTemplate(template) ; }
+    ( el = WhereClause() { up.setPattern(el) ; } )?
+    { return up ; }
+}
+
+Update Insert() : { Update up ; }
+{
+  <INSERT> 
+  ( up = InsertData() | up = InsertTemplate() )
+    { return up ; }
+}
+
+Update InsertData() :
+{ UpdateInsertData update = new UpdateInsertData() ;
+  String iri ; Template template ;
+  Token t ; }
+{
+   t = <DATA>
+   ((<INTO>)? iri = IRIref() { update.addGraphName(iri) ; } )*
+   template = ConstructTemplate()
+   { Graph triples = convertTemplateToTriples(template,
+                                        t.beginLine, t.beginColumn) ;
+     update.setData(triples) ;
+     return update ;
+    }
+}
+
+UpdatePattern InsertTemplate() :
+{ UpdateInsert up = new UpdateInsert() ; String iri ; Template template ; Element el ; }
+{
+  ((<INTO>)? iri = IRIref() { up.addGraphName(iri) ; } )*
+  template = ConstructTemplate() { up.setInsertTemplate(template) ; }
+    ( el = WhereClause() { up.setPattern(el) ; } )?
     { return up ; }
 }
 
@@ -349,10 +392,6 @@ void PropertyListNotEmpty(Node s, TripleCollector acc) : { Node p ; }
   p = Verb()
   ObjectList(s, p, acc)
   (<SEMICOLON> (p = Verb() ObjectList(s, p, acc))? )*
-
-
-
-
 }
 
 void PropertyList(Node s, TripleCollector acc) : { }
@@ -411,10 +450,6 @@ Node TriplesNode(TripleCollector acc) : { Node n ; }
   n = Collection(acc) { return n ; }
  |
   n = BlankNodePropertyList(acc) { return n ; }
-
-
-
-
 }
 
 Node BlankNodePropertyList(TripleCollector acc) : { }
@@ -425,6 +460,7 @@ Node BlankNodePropertyList(TripleCollector acc) : { }
   <RBRACKET>
     { return n ; }
 }
+
 // ------- RDF collections
 
 Node Collection(TripleCollector acc) :
@@ -641,7 +677,7 @@ Expr BuiltInCall() : { Expr expr ; Expr expr1, expr2 ; Node gn ; Token t ;}
     { return new E_Datatype(expr) ; }
 
   | <BOUND> <LPAREN> gn = Var() <RPAREN>
-    { return new E_Bound(new NodeVar(gn)) ; }
+    { return new E_Bound(new ExprVar(gn)) ; }
 
   | <SAME_TERM> <LPAREN> expr1 = Expression() <COMMA> expr2 = Expression() <RPAREN>
     { return new E_SameTerm(expr1, expr2) ; }
@@ -829,40 +865,15 @@ TOKEN [IGNORE_CASE] :
    < BASE: "base" >
 | < PREFIX: "prefix" >
 
-// Result forms
-| < SELECT: "select" >
-| < DISTINCT: "distinct" >
-| < DESCRIBE: "describe" >
-| < CONSTRUCT: "construct" >
-| < ASK: "ask" >
-
-| < LIMIT: "limit" >
-| < OFFSET: "offset" >
-| < ORDER: "order" >
-| < BY: "by" >
-
-
-
-
 | < ASC: "asc" >
 | < DESC: "desc" >
-
-// Dataset
-| < NAMED: "named" >
 | < FROM: "from" >
 
 // Graph pattern operators 
 | < WHERE: "where" >
-| < AND: "and" >
 | < GRAPH: "graph" >
 | < OPTIONAL: "optional" >
 | < UNION: "union" >
-
-
-
-
-
-
 | < FILTER: "filter" >
 
 // Expression operators
@@ -1023,7 +1034,7 @@ TOKEN:
 }
 
 /*
- * (c) Copyright 2007 Hewlett-Packard Development Company, LP
+ * (c) Copyright 2007, 2008 Hewlett-Packard Development Company, LP
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions

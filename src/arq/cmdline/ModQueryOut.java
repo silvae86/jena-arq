@@ -16,24 +16,16 @@ import com.hp.hpl.jena.query.Syntax;
 public class ModQueryOut implements ArgModuleGeneral
 {
     protected final ArgDecl queryOutputSyntaxDecl  = new ArgDecl(ArgDecl.HasValue, "out", "format") ;
-    protected final ArgDecl queryNumberDecl        = new ArgDecl(ArgDecl.HasValue, "num", "number") ;
-    protected final ArgDecl queryPlainDecl         = new ArgDecl(ArgDecl.NoValue, "plain") ;
+    protected final ArgDecl queryNumberDecl        = new ArgDecl(ArgDecl.NoValue, "num", "number") ;
 
     private Syntax outputSyntax = Syntax.syntaxSPARQL ;
-    private boolean lineNumbers = true ;
+    private boolean lineNumbers = false ;
     
     public void registerWith(CmdGeneral cmdLine)
     {
         cmdLine.getUsage().startCategory("Output") ;
-        cmdLine.add(queryOutputSyntaxDecl,
-                    "--out, --format",
-                    "Output syntax") ;
-        cmdLine.add(queryNumberDecl,
-                    "--num [on|off]",
-                    "Numbers") ;
-        cmdLine.add(queryPlainDecl,
-                    "--plain",
-                    "Plain output") ;
+        cmdLine.add(queryOutputSyntaxDecl, "--out, --format",  "Output syntax") ;
+        cmdLine.add(queryNumberDecl, "--num", "Print line numbers") ;
     }
 
     public void processArgs(CmdArgModule cmdline) throws IllegalArgumentException
@@ -48,11 +40,7 @@ public class ModQueryOut implements ArgModuleGeneral
             outputSyntax = syn ; 
         }        
         
-        if ( cmdline.contains(queryNumberDecl) )
-            lineNumbers = cmdline.getValue(queryNumberDecl).equalsIgnoreCase("on") ;
-        
-        if ( cmdline.contains(queryPlainDecl) )
-            lineNumbers = false ;
+        lineNumbers = cmdline.contains(queryNumberDecl) ;
     }
     
     public Syntax getOutputSyntax()
@@ -66,17 +54,17 @@ public class ModQueryOut implements ArgModuleGeneral
     public void output(IndentedWriter out, Query query)
     { PrintUtils.printQuery(out, query, outputSyntax) ; }
     
-    public void outputOp(Query query)
-    { outputOp(out(), query) ; }
+    public void outputOp(Query query, boolean printOptimized)
+    { outputOp(out(), query, printOptimized) ; }
 
-    public void outputOp(IndentedWriter out, Query query)
-    { PrintUtils.printOp(out, query) ; }
+    public void outputOp(IndentedWriter out, Query query, boolean printOptimized)
+    { PrintUtils.printOp(out, query, printOptimized) ; }
     
-    public void outputQuad(Query query)
-    { outputQuad(out(), query) ; }
+    public void outputQuad(Query query, boolean printOptimized)
+    { outputQuad(out(), query, printOptimized) ; }
     
-    public void outputQuad(IndentedWriter out, Query query)
-    { PrintUtils.printQuad(out, query) ; }
+    public void outputQuad(IndentedWriter out, Query query, boolean printOptimized)
+    { PrintUtils.printQuad(out, query, printOptimized) ; }
     
     private IndentedWriter out()
     {

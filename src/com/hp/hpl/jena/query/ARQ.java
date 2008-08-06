@@ -7,7 +7,6 @@
 package com.hp.hpl.jena.query;
 
 import com.hp.hpl.jena.assembler.assemblers.AssemblerGroup;
-
 import com.hp.hpl.jena.sparql.ARQConstants;
 import com.hp.hpl.jena.sparql.core.assembler.AssemblerUtils;
 import com.hp.hpl.jena.sparql.engine.optimizer.Optimizer;
@@ -27,6 +26,9 @@ public class ARQ
 
     /** Root of ARQ-defined parameter names */  
     public static final String arqNS = "http://jena.hpl.hp.com/ARQ#" ;
+    
+    /** Root of ARQ-defined parameter names */  
+    public static final String arqSymbolPrefix = "arq" ;
     
     /** Stick exactly to the spec.
      */
@@ -140,8 +142,6 @@ public class ARQ
      */
     public static final Symbol generateToList = ARQConstants.allocSymbol("generateToList") ;
 
-    private static boolean strictMode = false ; 
-    
     /** Set global strict mode */
     public static void setStrictMode() { setStrictMode(ARQ.getContext()) ; }
     
@@ -149,7 +149,6 @@ public class ARQ
     
     public static void setStrictMode(Context context)
     {
-        strictMode = true ;
         XSDFuncOp.strictDateTimeFO = true ;
         
         context.set(hideNonDistiguishedVariables, true) ;
@@ -164,13 +163,12 @@ public class ARQ
 //        XSDFuncOp.strictDateTimeFO = false ;
     }
     
-    //public static boolean getStrictMode()       { return strictMode ; }
+    public static boolean isStrictMode()       { return ARQ.getContext().isTrue(strictSPARQL) ; }
     
     public static void setNormalMode() { setNormalMode(ARQ.getContext()) ; }
         
     public static void setNormalMode(Context context)
     {
-        strictMode = false ;
         XSDFuncOp.strictDateTimeFO = false ;
 
         //context.set(hideNonDistiguishedVariables, true) ;
@@ -208,7 +206,6 @@ public class ARQ
             return ;
         initialized = true ;
         globalContext = defaultSettings() ;
-        
         // Markus Stocker 08/06/2007
         Optimizer.enable() ;
     }

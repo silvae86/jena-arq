@@ -17,33 +17,64 @@ import com.hp.hpl.jena.sparql.engine.QueryEngineFactory;
 import com.hp.hpl.jena.sparql.engine.QueryEngineRegistry;
 import com.hp.hpl.jena.sparql.engine.QueryIterator;
 import com.hp.hpl.jena.sparql.engine.binding.BindingRoot;
+import com.hp.hpl.jena.sparql.algebra.opt.Optimize;
+import com.hp.hpl.jena.sparql.algebra.opt.TransformEqualityFilter;
 import com.hp.hpl.jena.sparql.engine.ref.QueryEngineRef;
 import com.hp.hpl.jena.sparql.sse.Item;
 import com.hp.hpl.jena.sparql.sse.SSE;
 import com.hp.hpl.jena.sparql.sse.builders.BuilderOp;
 import com.hp.hpl.jena.sparql.syntax.Element;
+import com.hp.hpl.jena.sparql.util.Context;
 
+import com.hp.hpl.jena.query.ARQ;
 import com.hp.hpl.jena.query.Dataset;
 import com.hp.hpl.jena.query.Query;
 
+/** Utilities to produce SPARQL algebra */
 public class Algebra
 {
+    public static boolean AllowOptimization = true ;
+    private static Transform optimization() { return new TransformEqualityFilter() ; }
+    
+    // -------- Prepackaged combinations
+    
+    /** Compile a query - pattern and modifiers.  Optionally optimize the algebra expression. */
+    public static Op compile(Query query, boolean optimize)
+    {
+        Op op = compile(query) ;
+        if ( optimize )
+            op = optimize(op) ;
+        return op ;
+    }
+    
     // -------- Optimize
-    // Placeholder
-    // Currently all done in plan generation.
-    public static Op optimize(Op op) { return op ; }    
+    
+    /** Apply static transformations to a query to optimize it */
+    public static Op optimize(Op op) { return optimize(op, null) ; }
+    
+    /** Apply static transformations to a query to optimize it */
+    public static Op optimize(Op op, Context context)
+    {
+        if ( context == null )
+            context = ARQ.getContext() ;
+        // Call-through to somewhere to manage all the optimizations
+        if ( op == null )
+            return null ;
+        return Optimize.optimize(op, context) ;
+    }   
     
     // -------- Compile
     
-    /** Compile a query - pattern and modifiers */
+    /** Compile a query - pattern and modifiers.  */
     public static Op compile(Query query)
     {
+        // Need to switch on quads here. 
         if ( query == null )
             return null ;
         return new AlgebraGenerator().compile(query) ;
     }
 
-    /** Compile a pattern */
+    /** Compile a pattern.*/
     public static Op compile(Element elt)
     {
         if ( elt == null )
@@ -51,7 +82,7 @@ public class Algebra
         return new AlgebraGenerator().compile(elt) ;
     }
 
-    /** Compile a query - pattern and modifiers - to quad form */
+    /** Compile a query - pattern and modifiers - to quad form. */
     public static Op compileQuad(Query query)
     {
         if ( query == null )
@@ -59,7 +90,7 @@ public class Algebra
         return new AlgebraGeneratorQuad().compile(query) ;
     }
 
-    /** Compile a pattern - to quad form */
+    /** Compile a pattern to quad form. */
     public static Op compileQuad(Element elt)
     {
         if ( elt == null )
@@ -67,7 +98,18 @@ public class Algebra
         return new AlgebraGeneratorQuad().compile(elt) ;
     }
 
-    // ---- SSE
+    /** Compile a pattern - to quad form. */
+    public static Op compileQuad(Query query, boolean optimize)
+    {
+        if ( query == null )
+            return null ;
+        Op op = new AlgebraGeneratorQuad().compile(query) ;
+        if ( optimize )
+            op = optimize(op) ;
+        return op ;
+    }
+
+    // -------- SSE
     
     static public Op read(String filename)
     {
