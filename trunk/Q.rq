@@ -1,0 +1,7 @@
+PREFIX : <> 
+
+SELECT *
+{
+   ?s ?p ?o . FILTER(?s = :x1 || ?s = :x2 )
+}
+ 
