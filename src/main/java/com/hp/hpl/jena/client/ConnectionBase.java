@@ -26,7 +26,7 @@ import com.hp.hpl.jena.graph.Triple ;
 import com.hp.hpl.jena.sparql.core.DatasetGraph ;
 import com.hp.hpl.jena.sparql.core.Quad ;
 
-public abstract class ConnectionBase implements DataUpdater, Connection
+public abstract class ConnectionBase implements Inserter, Connection
 {
 
     @Override

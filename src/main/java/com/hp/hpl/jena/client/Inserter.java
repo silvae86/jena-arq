@@ -18,17 +18,17 @@
 
 package com.hp.hpl.jena.client;
 
-import java.io.InputStream ;
+import java.io.InputStream;
 
-import org.apache.jena.iri.IRI ;
+import org.apache.jena.iri.IRI;
 
-import com.hp.hpl.jena.graph.Graph ;
-import com.hp.hpl.jena.graph.Node ;
-import com.hp.hpl.jena.graph.Triple ;
-import com.hp.hpl.jena.sparql.core.DatasetGraph ;
-import com.hp.hpl.jena.sparql.core.Quad ;
+import com.hp.hpl.jena.graph.Graph;
+import com.hp.hpl.jena.graph.Node;
+import com.hp.hpl.jena.graph.Triple;
+import com.hp.hpl.jena.sparql.core.DatasetGraph;
+import com.hp.hpl.jena.sparql.core.Quad;
 
-public interface DataUpdater
+public interface Inserter
 {
     // Quads
     void add(Quad q);
@@ -36,12 +36,6 @@ public interface DataUpdater
     void add(DatasetGraph dsg);
     void add(InputStream in, RDFFormat lang);  // Lang must be NQUADS or TRIG
     void add(InputStream in, String base, RDFFormat lang);  // Lang must be NQUADS or TRIG
-    
-    void delete(Quad q);
-    void delete(Iterable<? extends Quad> quads);
-    void delete(DatasetGraph dsg);
-    void delete(InputStream in, RDFFormat lang);  // Lang must be NQUADS or TRIG
-    void delete(InputStream in, String base, RDFFormat lang);  // Lang must be NQUADS or TRIG
     
     // Triples
     void add(Node graphName, Triple t);
@@ -51,23 +45,5 @@ public interface DataUpdater
     void add(Node graphName, InputStream in, String base, RDFFormat lang);
     void add(Node graphName, IRI sourceDocument);
     
-    void put(Node graphName, Triple t);
-    void put(Node graphName, Iterable<? extends Triple> triples);
-    void put(Node graphName, Graph g);
-    void put(Node graphName, InputStream in, RDFFormat lang);
-    void put(Node graphName, InputStream in, String base, RDFFormat lang);
-    
-    void delete(Node graphName, Triple t);
-    void delete(Node graphName, Iterable<? extends Triple> triples);
-    void delete(Node graphName, Graph g);
-    void delete(Node graphName, InputStream in, RDFFormat lang);
-    void delete(Node graphName, InputStream in, String base, RDFFormat lang);
-    void clear(Node graphName);
-    
-    void create(Node graphName);
-    void drop(Node graphName);
-    void copy(Node sourceGraphName, Node destGraphName);
-    void move(Node sourceGraphName, Node destGraphName);
-    void add(Node sourceGraphName, Node destGraphName);
 }
 

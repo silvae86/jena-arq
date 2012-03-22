@@ -18,10 +18,9 @@
 
 package com.hp.hpl.jena.client;
 
-import org.openjena.atlas.lib.Closeable ;
 
-public interface BulkDataHandler extends Deleter, Closeable
+public interface Updater extends Inserter, Deleter
 {
-
+    
 }
 

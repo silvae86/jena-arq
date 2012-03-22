@@ -18,11 +18,7 @@
 
 package com.hp.hpl.jena.client.service;
 
-import java.util.Collection ;
-
-import com.hp.hpl.jena.graph.Graph ;
-import com.hp.hpl.jena.query.Syntax ;
-import com.hp.hpl.jena.sparql.core.Transactional ;
+import com.hp.hpl.jena.graph.Graph;
 
 /**
  * Information about the database.

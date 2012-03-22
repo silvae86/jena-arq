@@ -18,10 +18,15 @@
 
 package com.hp.hpl.jena.client;
 
-import org.openjena.atlas.lib.Closeable ;
+import com.hp.hpl.jena.graph.Node;
 
-public interface BulkDataHandler extends Deleter, Closeable
+public interface GraphOperations
 {
-
+    void create(Node graphName);
+    void drop(Node graphName);
+    void clear(Node graphName);
+    void copy(Node sourceGraphName, Node destGraphName);
+    void move(Node sourceGraphName, Node destGraphName);
+    void add(Node sourceGraphName, Node destGraphName);
 }
 

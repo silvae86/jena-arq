@@ -16,11 +16,9 @@
  * limitations under the License.
  */
 
-package com.hp.hpl.jena.client;
+package com.hp.hpl.jena.client.service;
 
-import org.openjena.atlas.lib.Closeable ;
-
-public interface BulkDataHandler extends Deleter, Closeable
+public interface GraphStoreProtocolService
 {
 
 }
